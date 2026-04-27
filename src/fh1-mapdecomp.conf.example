@@ -1,0 +1,22 @@
+# fh1-mapdecomp.conf
+#
+# Default arguments used when the executable is launched with NO command-line
+# args (e.g. by double-clicking it). One token per line. Lines starting with
+# '#' and blank lines are ignored.
+#
+# When you pass any argument on the command line, this file is ignored.
+#
+# Example: extract everything (bin.zip + world JSON + meshes + blender scene)
+# into ./out, given a Forza Horizon install dir:
+#
+# all
+# --source
+# C:/Games/Forza Horizon
+# --output
+# ./out
+#
+# Example: just list the bin.zip contents:
+#
+# list
+# --source
+# ./4D5309C9

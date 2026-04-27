@@ -1,0 +1,137 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+        type: string
+      notes:
+        description: 'Release notes'
+        required: false
+        type: string
+        default: ''
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PROJECT_NAME: fh1-mapdecomp
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache vendor/
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: vendor-linux-${{ hashFiles('download-deps.sh') }}
+
+      - name: Download deps
+        run: |
+          chmod +x ./download-deps.sh
+          ./download-deps.sh
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pyinstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Build
+        run: |
+          chmod +x ./release.sh
+          ./release.sh --local
+
+      - name: Stage release dir
+        run: |
+          mv "../${PROJECT_NAME}-release" dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache vendor/
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: vendor-windows-${{ hashFiles('download-deps.sh') }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download deps
+        shell: bash
+        run: |
+          chmod +x ./download-deps.sh
+          ./download-deps.sh
+
+      - name: Install pyinstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Build
+        shell: bash
+        env:
+          CC: gcc
+        run: |
+          chmod +x ./release.sh
+          ./release.sh --local
+
+      - name: Stage release dir
+        shell: bash
+        run: |
+          mv "../${PROJECT_NAME}-release" dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist
+
+  release:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: linux
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: windows
+
+      - name: Package
+        run: |
+          (cd linux   && zip -r "../${PROJECT_NAME}-linux.zip" .)
+          (cd windows && zip -r "../${PROJECT_NAME}-windows.zip" .)
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create "${{ inputs.version }}" \
+              "${PROJECT_NAME}-linux.zip" \
+              "${PROJECT_NAME}-windows.zip" \
+              --title "${{ inputs.version }}" \
+              --notes "${{ inputs.notes }}" \
+              $PRERELEASE_FLAG
