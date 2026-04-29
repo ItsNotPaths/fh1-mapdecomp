@@ -3,7 +3,6 @@
     fh1-mapdecomp list           --source <bin.zip | game dir> [--glob PAT]...
     fh1-mapdecomp extract        --source <bin.zip | game dir> --output <dir> [--glob PAT]...
     fh1-mapdecomp world          --source <bin.zip | game dir> --output <dir>
-    fh1-mapdecomp xex            --source <default.xex | game dir> --output <dir>
     fh1-mapdecomp blender        --source <bin.zip | game dir> --output <dir> [--blender PATH]
     fh1-mapdecomp render-topdown --output <dir> [--blender PATH]
     fh1-mapdecomp all            --source <bin.zip | game dir> --output <dir> [--blender PATH]
@@ -17,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import json
 import os
 import sys
 from pathlib import Path
@@ -40,7 +40,6 @@ from fh1_mapdecomp.v42k7_inst import (
     extract_v42k7_instances, summarise as v42k7_inst_summarise,
 )
 from fh1_mapdecomp.world import build_placement, summarise, write_placement
-from fh1_mapdecomp.xex import extract_xex, summarise as xex_summarise
 
 
 def _filter(entries: list[Entry], globs: list[str] | None, limit: int | None) -> list[Entry]:
@@ -152,11 +151,52 @@ def cmd_rmb_world(args: argparse.Namespace) -> int:
 def cmd_v42k7_inst(args: argparse.Namespace) -> int:
     zip_path = resolve_binzip(Path(args.source))
     out_dir = Path(args.output) / "v42k7_inst"
+
+    # Cross-source dedup: rmb_world owns landmark/persistent placements
+    # via its wrapper-rmb path (Smelter, cables, MT_Area decals,
+    # Pavementcaps, Object NNN, etc.). v42k7 references those same
+    # handles as streaming/visibility hints — emitting both produces
+    # rings of duplicates around chunks that load each landmark.
+    # If rmb_world has already been extracted, load its tag set and
+    # exclude any v42k7 blob whose stripped tag matches. Also load
+    # the per-family LOD floor so the LOD filter is consistent across
+    # pipelines (some families have only LOD01 in the pool, no LOD00).
+    exclude_tag_keys: set[str] | None = None
+    family_min_lod: dict | None = None
+    rmb_world_index = Path(args.output) / "rmb_world" / "index.json"
+    if rmb_world_index.exists():
+        try:
+            from fh1_mapdecomp.v42k7_inst import _strip_lod_suffix
+            rw = json.loads(rmb_world_index.read_text())
+            # Include both ``tag`` (the per-section asset name like
+            # ``PLA_SMELTER_BLDG_BlastFurnaceLow_001``) and ``wrapper_tag``
+            # (the source rmb's name like
+            # ``PLA_SMELTER_BLDG_BlastFurnaceLow_LOD00``). v42k7 handles
+            # carry the wrapper-tag form, so without including it the
+            # cross-source dedup misses the smelter and similar landmarks.
+            exclude_tag_keys = set()
+            for b in rw.get("blobs", []):
+                exclude_tag_keys.add(_strip_lod_suffix(b.get("tag", "")))
+                w = b.get("wrapper_tag", "")
+                if w and w != b.get("tag"):
+                    exclude_tag_keys.add(_strip_lod_suffix(w))
+            exclude_tag_keys.discard("")
+            family_min_lod = rw.get("family_min_lod")
+            print(f"[v42k7_inst] dedup vs rmb_world: "
+                  f"{len(exclude_tag_keys)} tag keys, "
+                  f"family_min_lod: {len(family_min_lod or {})} families",
+                  file=sys.stderr)
+        except Exception as ex:
+            print(f"[v42k7_inst] could not load rmb_world tags ({ex}); "
+                  f"running without dedup", file=sys.stderr)
+
     doc = extract_v42k7_instances(
         zip_path, out_dir,
         include_all_lods=getattr(args, "all_lods", False),
         policy=getattr(args, "policy", "freeroam"),
         progress=_progress("v42k7_inst"),
+        exclude_tag_keys=exclude_tag_keys,
+        family_min_lod=family_min_lod,
     )
     v42k7_inst_summarise(doc)
     print(f"wrote {out_dir}/index.json", file=sys.stderr)
@@ -192,14 +232,6 @@ def cmd_collobjs_inst(args: argparse.Namespace) -> int:
         progress=_progress("collobjs"),
     )
     collobjs_summarise(doc)
-    print(f"wrote {out_dir}/index.json", file=sys.stderr)
-    return 0
-
-
-def cmd_xex(args: argparse.Namespace) -> int:
-    out_dir = Path(args.output) / "xex"
-    info = extract_xex(Path(args.source), out_dir)
-    xex_summarise(info)
     print(f"wrote {out_dir}/index.json", file=sys.stderr)
     return 0
 
@@ -300,6 +332,20 @@ def cmd_all(args: argparse.Namespace) -> int:
         if rc != 0 and not args.keep_going:
             return rc
 
+    # rmb_world runs before v42k7_inst so its blob tags are available
+    # for cross-source dedup. Without this ordering, v42k7_inst emits
+    # ~30k duplicate instances (smelters, cables, decals, road segments)
+    # that are already placed by rmb_world's wrapper-rmb path.
+    if not args.no_rmb_world:
+        rmb_world_args = argparse.Namespace(
+            source=args.source, output=str(out_dir),
+            policy=getattr(args, "rmb_world_policy", "freeroam"),
+            all_lods=False,
+        )
+        rc = cmd_rmb_world(rmb_world_args)
+        if rc != 0 and not args.keep_going:
+            return rc
+
     if not args.no_v42k7_inst:
         v42k7_args = argparse.Namespace(
             source=args.source, output=str(out_dir),
@@ -322,16 +368,6 @@ def cmd_all(args: argparse.Namespace) -> int:
         except FileNotFoundError as ex:
             print(f"[collobjs] skipping: {ex}", file=sys.stderr)
             rc = 0
-        if rc != 0 and not args.keep_going:
-            return rc
-
-    if not args.no_rmb_world:
-        rmb_world_args = argparse.Namespace(
-            source=args.source, output=str(out_dir),
-            policy=getattr(args, "rmb_world_policy", "freeroam"),
-            all_lods=False,
-        )
-        rc = cmd_rmb_world(rmb_world_args)
         if rc != 0 and not args.keep_going:
             return rc
 
@@ -444,18 +480,6 @@ def build_parser() -> argparse.ArgumentParser:
                           "(catches more placements but risks wrong-model "
                           "matches for bases missing from the rmb pool)")
     cop.set_defaults(func=cmd_collobjs_inst)
-
-    xp = sub.add_parser(
-        "xex",
-        help="unpack default.xex to a flat PE image (decrypt + decompress)",
-    )
-    xp.add_argument(
-        "--source", required=True,
-        help="path to default.xex or a directory containing one "
-             "(retail layout: <title>/00007000/<dlc>/default.xex)",
-    )
-    xp.add_argument("--output", required=True, help="output directory")
-    xp.set_defaults(func=cmd_xex)
 
     bp = sub.add_parser("blender", help="build colorado.blend from placement JSON")
     bp.add_argument("--output", required=True, help="output directory (same as used for world)")

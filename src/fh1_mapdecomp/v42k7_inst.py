@@ -55,37 +55,34 @@ _IDENTITY_ROT = (
 )
 
 
-# Free-roam tag-prefix policy. v42k7 chunks intermix freeroam content
-# (buildings, mountains, debris, cables) with race-event dressing
-# (barriers, grandstands, festival props). 943/1377 chunks reference
-# both classes, so filtering must be per-section. Authority for CO_*/
-# OBJ_CLRD_* placement lives in Ribbon_00/CollObjs.xml; placing them
-# from v42k7 too duplicates the prop. Authority for Barnfind_* lives
-# in Ribbon_00/GameObjs.xml; v42k7 over-emits this handle ~2,897x for
-# ~30 real Barn Finds. See docs/state-of-extraction.md and
-# docs/freeroam-placement.md for derivation.
-_KEEP_TAG_PREFIXES: tuple[str, ...] = (
-    "BLDG_",          # buildings
-    "MainTown_",      # main-town props
-    "Maintown_",      # main-town walls (case variant)
-    "MT_Area",        # mountain area terrain/decals
-    "MOUN_",          # mountain props
-    "Plains_Area",    # plains terrain
-    "RV_",            # area environment (RV_Dawning_*, etc.)
-    "S_Debris",       # roadside debris
-    "MiningTower",    # landmark
-    "Pavementcap_",   # road-finish caps
-    "cables_",        # utility cables
-    "TWALL_",         # town walls
-    "PLA_",           # interstate signs
-    "TERR_",          # terrain (skipped separately by skipped_terrain
-                      # but listed here for documentation)
-)
+# Free-roam tag-prefix drop-list. The v42k7 sections list 1-3 rmb
+# handles each (slots 0/1/2) — these are compound placements where the
+# engine puts every listed handle at every instance position the
+# section's Table-B record points at. Most slot pairs co-place two
+# different assets (e.g. BLDG_MainTown_Corner011 + Modular_020 — a
+# corner piece plus an adjacent wall section); a minority list two
+# LODs of the same asset (e.g. OBJ_BarrierBrand_LOD00 + _LOD01).
+#
+# We emit every handle the chunk references EXCEPT race-event dressing
+# and assets owned by other manifests:
+#   - CollObjs.xml owns CO_*/OBJ_CLRD_*/O_CO_* (placing them from v42k7
+#     duplicates the prop).
+#   - GameObjs.xml owns Barnfind_* (real Barn Find positions live there;
+#     v42k7 lists Barnfind_Barn__LOD00 in 500+ section slots as a
+#     shared library reference, not a placement).
+# All other handles pass through; trying to maintain a keep-list bottoms
+# the output to ~48 unique handles, which is the slot-0 over-emission
+# artifact.
 _DROP_TAG_PREFIXES: tuple[str, ...] = (
-    # Race / festival dressing.
-    "OBJ_BarrierBrand", "OBJ_FEST", "OBJ_Fest",
-    "Barrier_", "Grandstand", "Ambulance",
-    "Countdown", "Shadow_Caster",
+    # Strict race-only drops. OBJ_BarrierBrand / OBJ_FEST_* / FEST_* /
+    # GrandstandStraight ARE permanent freeroam geometry at the
+    # festival hub (verified: sec[12] of __R00G07014 places 71
+    # OBJ_BarrierBrand instances right at the festival entrance — those
+    # are real metal barriers; sec[2] co-places OBJ_FEST_CanopyClosed
+    # with its RV_Dawning_01 chassis). They're kept here.
+    "Ambulance",
+    "Countdown",
+    "Shadow_Caster",
     "PROC_cars",
     # CollObjs.xml owns these (de-dupe).
     "CO_", "OBJ_CLRD_", "O_CO_",
@@ -181,53 +178,129 @@ def _proc_synth_mesh(klass: str) -> tuple[np.ndarray, np.ndarray]:
     return positions, faces
 
 
-def _classify_tag(tag: str) -> str:
-    """Return 'keep', 'drop', or 'unknown' for a freeroam policy decision.
+# u0=0 cull-box rendering threshold. Table B's `cull_box[0]` discriminates
+# u0=0 streaming/metadata sections from real-placement u0=0 sections:
+#
+#   cull[0]   role
+#   -------   ----
+#   0         metadata-only (always inst=0)
+#   60        streaming impostor — all sentinel-bbox sections live here,
+#             plus a set of unique-bbox sections that pair unrelated
+#             handles (Sign+Commercial, Maintown+Festival, etc.)
+#   80+       real placement (mostly building modules, walls, decals,
+#             cables; the per-handle LOD filter handles LOD01/MIDDIST
+#             stragglers). Threshold-80 verified: 10 cull=80 sections
+#             of `Maintown_WallSmall_BrickRedd_8M_NOLOD + BrickRed_EndPiece`
+#             place 260 wall instances across diverse maintown chunks,
+#             all at sensible terrain heights (Y~-3, 125, 140).
+#
+# Verified across 800+ u0=0 sections in the Colorado pool. cull=60
+# sections (267 sections / 5360 instances) cover the 166-section
+# sentinel-bbox group plus 101 unique-bbox impostors. The handful of
+# pure-impostor handle tuples that leak through at cull=80 (e.g.
+# Commercial_09_LOD01 + corner07_LOD00, 1 section) are reduced to a
+# single render handle by the per-handle LOD filter.
+#
+# u0=1 sections render directly regardless of cull (cull there is just
+# a per-section distance LOD band) — only apply this filter to u0=0.
+_U0Z_CULL_THRESHOLD = 80.0
 
-    Order: explicit drop list wins over keep list (e.g. 'OBJ_CLRD_*'
-    matches both 'OBJ_' and 'CLRD' family but the drop is intentional —
-    CollObjs owns it).
+
+_LOD_TAIL_RE = __import__("re").compile(r"_LOD(\d{2})_*$")
+
+
+def _is_lod_pair(tag_a: str, tag_b: str) -> bool:
+    """True if ``tag_a`` and ``tag_b`` are LOD0/LOD1 (or similar) variants
+    of the same base asset. Used to keep only the LOD0 leg of a section
+    whose handle list contains both LODs of the same asset.
+    """
+    ma = _LOD_TAIL_RE.search(tag_a or "")
+    mb = _LOD_TAIL_RE.search(tag_b or "")
+    if not ma or not mb:
+        return False
+    if ma.group(1) == mb.group(1):
+        return False  # same LOD level — not a pair
+    base_a = tag_a[:ma.start()]
+    base_b = tag_b[:mb.start()]
+    return base_a == base_b
+
+
+def _classify_tag(tag: str) -> str:
+    """Return 'keep' or 'drop' for a freeroam policy decision.
+
+    Drop-list wins; everything else is kept. The previous keep-list
+    approach forced the output to ~48 unique handles (visible as the
+    "ring of shadow casters" artifact); compound-section emission
+    (slots 0+1+2) needs an open-by-default policy to surface the
+    diverse asset coverage v42k7 actually carries.
     """
     if any(tag.startswith(p) for p in _DROP_TAG_PREFIXES):
         return "drop"
-    if any(tag.startswith(p) for p in _KEEP_TAG_PREFIXES):
-        return "keep"
-    return "unknown"
+    return "keep"
 
 
-def _normalise_rot(rot: tuple) -> list[list[float]]:
-    """Return a 3x3 rotation matrix (row-major) as nested lists.
+def _normalise_rot_scale(
+    rot: tuple,
+) -> tuple[list[list[float]], float]:
+    """Decompose the position-table rotation rows into (R, scale).
 
-    The three rows from parse_position_table are the local +X, +Y, +Z
-    axes of the instance expressed in world space, scaled by a per-entry
-    model radius. Empirically r0×r1 = -r2, so the stored axes form a
-    left-handed frame (FH1 is a D3D-era Xbox 360 title).
+    The three rows are the instance's local +X, +Y, +Z axes expressed
+    in world space, scaled by a per-instance model-radius factor (~0.3-
+    0.5 for typical decal/road sections, ~1.0 for unscaled assets).
+    Empirically the row magnitudes match across axes — so scale is
+    recovered as the average row magnitude and orientation as the
+    unit-length axes. The data is already right-handed: verified on
+    Models_Ungrouped_1524 sec[18] (festival OBJ_FEST_BarrierMetal),
+    ``r0 × r1`` matches ``r2`` to within float noise. The earlier code
+    negated r2 under an "LH→RH" assumption that produced reflected
+    rotations — visible as the wrong orientation on asymmetric assets
+    while symmetric ones (most barriers) survived the bug.
 
-    To feed Blender a usable rotation matrix we:
-      1. Normalise each axis row to unit length.
-      2. Flip the third axis so (r0, r1, r2') form a right-handed frame.
-      3. Transpose so the axes become the COLUMNS of R — i.e. a standard
-         row-major matrix where ``R @ local_v = world_v``.
+    Returns ``(rotation_3x3_as_nested_lists, scale_float)``.
     """
     axes: list[tuple[float, float, float]] = []
+    mags: list[float] = []
     for i, row in enumerate(rot):
         m2 = row[0] * row[0] + row[1] * row[1] + row[2] * row[2]
         if m2 > 1e-12:
-            inv = m2 ** -0.5
+            mag = m2 ** 0.5
+            inv = 1.0 / mag
             axes.append((row[0] * inv, row[1] * inv, row[2] * inv))
+            mags.append(mag)
         else:
             axes.append(_IDENTITY_ROT[i])
-    # LH -> RH by negating the third axis.
-    axes[2] = (-axes[2][0], -axes[2][1], -axes[2][2])
-    # axes[i] is local axis i in world space → columns of R. Transpose
-    # into row-major rotation matrix: out[i][j] = axes[j][i].
-    return [
+            mags.append(1.0)
+    # axes[i] is local axis i in world space → columns of R.
+    # Transpose so out[i][j] = axes[j][i] (row-major rotation matrix
+    # where R @ local_v = world_v).
+    rotation = [
         [axes[0][i], axes[1][i], axes[2][i]]
         for i in range(3)
     ]
+    scale = sum(mags) / 3.0
+    return rotation, scale
+
+
+def _normalise_rot(rot: tuple) -> list[list[float]]:
+    """Backward-compat wrapper: return rotation matrix only."""
+    return _normalise_rot_scale(rot)[0]
 
 
 ProgressFn = Optional[Callable[[int, int], None]]
+
+
+_LOD_NOLOD_RE = __import__("re").compile(r"(_LOD\d+_*|_NOLOD)$")
+
+
+def _strip_lod_suffix(tag: str) -> str:
+    """Normalise a tag for cross-source dedup against rmb_world.
+
+    Drops `_LOD\\d+` (with optional trailing underscore) and `_NOLOD`.
+    Used to detect when a v42k7 handle's tag is the same conceptual
+    asset as one already placed by rmb_world's wrapper-rmb path —
+    those are streaming/library references, not render targets.
+    """
+    return _LOD_NOLOD_RE.sub("", tag or "")
 
 
 def extract_v42k7_instances(
@@ -237,7 +310,21 @@ def extract_v42k7_instances(
     include_all_lods: bool = False,
     policy: str = "freeroam",
     progress: ProgressFn = None,
+    exclude_tag_keys: Optional[set] = None,
+    family_min_lod: Optional[dict] = None,
 ) -> dict:
+    """Extract v42k7 → rmb instance placements.
+
+    ``exclude_tag_keys`` (optional): set of LOD/NOLOD-stripped tag
+    strings. Blobs whose tag, after the same strip, lands in this set
+    are dropped — a streaming/library cross-reference filter that
+    avoids duplicating placements already handled by rmb_world. The
+    canonical use is to pass ``{strip(tag) for tag in rmb_world_tags}``;
+    that suppresses ~30k duplicate v42k7 instances (cables, smelter,
+    pavements, road segments, MT_Area decals, Steelworks, Object NNN)
+    that would otherwise render in radial "rings" around the chunks
+    that load them as visibility hints.
+    """
     if policy not in ("freeroam", "all"):
         raise ValueError(f"policy must be 'freeroam' or 'all', got {policy!r}")
     blob_dir = out_dir / "blobs"
@@ -271,6 +358,21 @@ def extract_v42k7_instances(
     proc_inline_chunks = 0
     proc_inline_positions = 0
     proc_dropped_descriptors: dict[str, int] = {}
+
+    # Tag-by-handle cache for the LOD-pair check during slot picking.
+    # Without this, every section's pair check re-decodes the same rmb
+    # blobs — devastating for runtime on chunks with high section counts.
+    from fh1_mapdecomp.rmb import parse_blob as _parse_blob_for_tag
+    _tag_cache: dict[int, str] = {}
+    def _tag_of(handle: int) -> str:
+        if handle in _tag_cache:
+            return _tag_cache[handle]
+        try:
+            t = _parse_blob_for_tag(read_entry(zip_path, rmb_entries[handle])).tag
+        except Exception:
+            t = ""
+        _tag_cache[handle] = t
+        return t
 
     for i, e in enumerate(pgeo_entries):
         if progress and i % 2000 == 0:
@@ -339,7 +441,8 @@ def extract_v42k7_instances(
                 if positions_xyz:
                     instances_meta = [
                         {"pos": [p[0], p[1], p[2]],
-                         "rot": [list(r) for r in _IDENTITY_ROT]}
+                         "rot": [list(r) for r in _IDENTITY_ROT],
+                         "scale": 1.0}
                         for p in positions_xyz
                     ]
                     proc_inline_positions += len(positions_xyz)
@@ -349,6 +452,7 @@ def extract_v42k7_instances(
                     instances_meta = [{
                         "pos": [cx, cy, cz],
                         "rot": [list(r) for r in _IDENTITY_ROT],
+                        "scale": 1.0,
                     }]
                     proc_inline_positions += 1
                 chunks.append({
@@ -374,51 +478,98 @@ def extract_v42k7_instances(
 
             sections_meta: list[dict] = []
             handle_acc: list[int] = []
+            # u0=0 cull-box filter for streaming-impostor sections.
+            # cull_box[0] in {0, 60} marks streaming-only entries (the
+            # 166-section sentinel-bbox group plus ~100 unique-bbox
+            # sections that pair unrelated handles like Sign+Commercial
+            # at festival positions); cull_box[0] >= 100 marks real
+            # placements (festival barriers, road decals, building
+            # modules, cables). u0=1 sections render directly so cull
+            # only sets the distance LOD band there — the filter does
+            # not apply to them.
             for sec_idx, sec in enumerate(layout.sections):
-                # Slot 0 is the renderable main mesh. Slots 1/2 are
-                # auxiliary (shadow caster, LOD sibling, cull proxy) —
-                # placing them at every instance position produces the
-                # classic "crowd of shadow casters in a ring" artefact.
-                primary = sec.rmb_handles[0] if sec.rmb_handles else 0
-                if primary == 0:
-                    continue
-                handles = [primary]
-
-                # Drop Table B sections with u0=0. These correlate with
-                # high instance counts, uniformly zero section_constant,
-                # and distinctive handle patterns (e.g. BlastFurnaceLow
-                # placed 136× in a 240×200m chunk — the NW "ring of
-                # smelters" artefact). Real per-instance placements use
-                # u0=1 with jittered section_constant floats; u0=0 sections
-                # appear to be occluder/impostor/spawn metadata whose true
-                # semantics is not yet decoded. Safe to skip until then.
-                if records is not None and sec_idx < len(records) and records[sec_idx].u0 == 0:
+                # The v42k7 within-section selector is the per-section
+                # **slot skip mask**: trailing u32 at +0x54 of the 88-byte
+                # Table B record. Bit N set = SKIP slot N (don't render).
+                # Validated against ground-truth chunk 1463 sec[5]
+                # (festival barrier): mask=0x05=0b101 → skip slots 0+2 →
+                # render slot 1 = OBJ_FEST_BarrierMetal_LOD00.
+                # See docs/world-architecture.md §5.2.
+                #
+                # For 1-slot sections the field is sometimes re-purposed
+                # (occasionally a float ~1.0); mask only the bits within
+                # the section's actual slot count to be safe.
+                raw_handles = [h for h in sec.rmb_handles if h != 0]
+                if not raw_handles:
                     continue
 
-                instances_meta: list[dict] = []
-                if per_section_instances is not None and sec_idx < len(per_section_instances):
-                    for inst in per_section_instances[sec_idx]:
-                        instances_meta.append({
-                            "pos": list(inst.position),
-                            "rot": _normalise_rot(inst.rotation),
-                        })
+                rec = (records[sec_idx]
+                       if records is not None and sec_idx < len(records)
+                       else None)
+                u0 = rec.u0 if rec is not None else 1
+                if u0 == 0 and rec is not None and rec.cull_box[0] < _U0Z_CULL_THRESHOLD:
+                    continue
 
-                if not instances_meta:
-                    # Chunk-anchor fallback: single instance at
-                    # chunk origin + section local-bbox centre.
-                    f = sec.floats
+                # HIGHEST-SET-BIT rule (2026-04-28): the +0x54 byte's
+                # highest set bit identifies the slot to render. Verified
+                # by transform-spacing measurement:
+                #   G06788 sec[8] mask=0x4 (bit 2) spacing=9.80m,
+                #     slot[2]=Modular_004 (10.01m wide) ✓
+                #   G06848 sec[12] mask=0x6 (bits 1,2) → highest=2 ✓
+                #   G06632 sec[8]  mask=0x5 (bits 0,2) → highest=2 ✓
+                #   G07014 sec[4]  mask=0x3 (bits 0,1) spacing=9.18m,
+                #     slot[1]=Modular_020 (8.68m wide) ✓
+                # Multi-bit masks aren't "render every set bit" — they
+                # encode (impostor_slot..high_LOD_slot), and the engine
+                # renders the highest LOD index. Lower bits are streaming
+                # impostor companions to load.
+                #
+                # LOD-PAIR EXCEPTION: when the slot list is a same-base
+                # LOD pair (LOD00/LOD01 of the same asset), pick the
+                # lowest-LOD-index slot (highest detail) instead of
+                # highest-bit (which would pick the LOD01 impostor).
+                slot_count = len(raw_handles)
+                raw_mask = rec.slot_skip_mask if rec is not None else 0
+                in_range_bits = (1 << slot_count) - 1
+                if raw_mask & ~in_range_bits:
+                    continue  # high-bit deactivation
+                mask = raw_mask & in_range_bits
+                if mask == 0:
+                    continue  # no slots active → streaming-only section
+                # LOD-pair detection: get tag of slot 0 and slot 1 if both
+                # exist and look at base names. Uses cached tag lookup.
+                pick_slot = mask.bit_length() - 1
+                if slot_count >= 2:
+                    ta = _tag_of(raw_handles[0])
+                    tb = _tag_of(raw_handles[1])
+                    if ta and tb and _is_lod_pair(ta, tb):
+                        pick_slot = 0  # take LOD00 (highest detail)
+                handles = [raw_handles[pick_slot]]
+
+                # Real placements live in the position table. No
+                # chunk-anchor fallback — sections without instances
+                # are metadata only.
+                if per_section_instances is None:
+                    continue
+                if sec_idx >= len(per_section_instances):
+                    continue
+                section_insts = per_section_instances[sec_idx]
+                if not section_insts:
+                    continue
+
+                instances_meta = []
+                for inst in section_insts:
+                    rotation, scale = _normalise_rot_scale(inst.rotation)
                     instances_meta.append({
-                        "pos": [
-                            cx + (f[0] + f[2]) * 0.5,
-                            cy + (f[1] + f[3]) * 0.5,
-                            cz + (f[4] + f[5]) * 0.5,
-                        ],
-                        "rot": [list(r) for r in _IDENTITY_ROT],
+                        "pos": list(inst.position),
+                        "rot": rotation,
+                        "scale": scale,
                     })
 
                 sections_meta.append({
                     "handles": handles,
                     "instances": instances_meta,
+                    "u0": int(u0),
                 })
                 handle_acc.extend(handles)
             if not sections_meta:
@@ -458,7 +609,7 @@ def extract_v42k7_instances(
             klass = synth_by_handle[handle]
             sp, sf = _proc_synth_mesh(klass)
             name = f"{handle:06d}.npz"
-            np.savez_compressed(blob_dir / name, positions=sp, faces=sf)
+            np.savez(blob_dir / name, positions=sp, faces=sf)
             blobs_meta.append({
                 "handle": handle,
                 "npz": f"blobs/{name}",
@@ -483,22 +634,42 @@ def extract_v42k7_instances(
                 skipped_terrain.add(handle)
                 continue
             if not include_all_lods:
-                if blob.lod and blob.lod != "00":
-                    skipped_lod.add(handle)
-                    continue
+                # Per-family-min-LOD filter (consistent with rmb_world).
+                # Within each stripped-tag family, keep only the LOD
+                # variant matching the family's LOD floor (smallest LOD
+                # number present in the pool = highest detail). For
+                # families with no numeric LOD (cables_NNN etc.) keep
+                # all. The family_min_lod dict comes from rmb_world's
+                # pre-pass; if not provided fall back to the older
+                # global "LOD00 only" rule.
+                if blob.lod:
+                    try:
+                        lod_num = int(blob.lod)
+                    except ValueError:
+                        lod_num = None
+                    if family_min_lod is not None:
+                        stripped = _strip_lod_suffix(blob.tag)
+                        target = family_min_lod.get(stripped)
+                        if target is not None and lod_num != target:
+                            skipped_lod.add(handle)
+                            continue
+                    else:
+                        if blob.lod != "00":
+                            skipped_lod.add(handle)
+                            continue
                 if "MIDDIST" in blob.tag:
                     skipped_lod.add(handle)
                     continue
             if policy == "freeroam":
-                k = _classify_tag(blob.tag)
-                if k == "drop":
+                if _classify_tag(blob.tag) == "drop":
                     skipped_filter.append({"handle": handle, "tag": blob.tag})
                     continue
-                if k == "unknown":
-                    # Default: drop unknowns since race dressing dominates,
-                    # but list them so a future session can graduate the
-                    # legitimate ones into _KEEP_TAG_PREFIXES.
-                    skipped_unknown.append({"handle": handle, "tag": blob.tag})
+            if exclude_tag_keys is not None:
+                if _strip_lod_suffix(blob.tag) in exclude_tag_keys:
+                    skipped_filter.append({
+                        "handle": handle, "tag": blob.tag,
+                        "reason": "duplicate_with_rmb_world",
+                    })
                     continue
             # Merge primary + sub-blob geometry into a single mesh.
             # Sub-blobs share the primary's coordinate frame (verified on
@@ -522,7 +693,7 @@ def extract_v42k7_instances(
             else:
                 tris = np.zeros((0, 3), dtype=np.uint32)
             name = f"{handle:06d}.npz"
-            np.savez_compressed(
+            np.savez(
                 blob_dir / name,
                 positions=positions.astype(np.float32, copy=False),
                 faces=tris,
@@ -539,10 +710,46 @@ def extract_v42k7_instances(
         except Exception as ex:
             blob_failed.append((handle, str(ex)))
 
+    # LOD-pair de-duplication. For ANY section (u0=0 or u0=1), if the
+    # slot list contains a LOD pair of the same base asset, keep only
+    # the LOD0 leg — emitting both LOD00 and LOD01 at the same world
+    # position double-renders, and the LOD01 sibling often uses a
+    # different mesh-pivot Y so it sinks under the terrain.
+    #
+    # Real-vs-impostor selection for u0=0 sections happens earlier via
+    # the cull_box[0] >= 100 gate; this pass only de-dupes LOD legs.
+    handle_tag = {b["handle"]: b["tag"] for b in blobs_meta}
+    sections_dropped_lod_check = 0
+    for c in chunks:
+        kept_sections: list[dict] = []
+        for s in c["sections"]:
+            hs = list(s["handles"])
+            for i in range(len(hs) - 1):
+                ta = handle_tag.get(hs[i], "")
+                for j in range(i + 1, len(hs)):
+                    tb = handle_tag.get(hs[j], "")
+                    if _is_lod_pair(ta, tb):
+                        ma = _LOD_TAIL_RE.search(ta)
+                        mb = _LOD_TAIL_RE.search(tb)
+                        la = int(ma.group(1))
+                        lb = int(mb.group(1))
+                        drop_h = hs[j] if la <= lb else hs[i]
+                        hs = [h for h in hs if h != drop_h]
+                        break
+                else:
+                    continue
+                break
+            if not hs:
+                sections_dropped_lod_check += 1
+                continue
+            s = dict(s, handles=hs)
+            kept_sections.append(s)
+        c["sections"] = kept_sections
+    chunks[:] = [c for c in chunks if c["sections"]]
+
     # Drop skipped handles from chunks so the importer doesn't have to filter.
     filtered_handles = {d["handle"] for d in skipped_filter}
-    unknown_handles = {d["handle"] for d in skipped_unknown}
-    drop = skipped_terrain | skipped_lod | filtered_handles | unknown_handles
+    drop = skipped_terrain | skipped_lod | filtered_handles
     kept_inst_before = sum(len(s["instances"])
                            for c in chunks for s in c["sections"])
     if drop:

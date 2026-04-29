@@ -7,7 +7,45 @@ share the same section grammar but have a stripped-down header and live
 sequentially after the primary's section block. ``parse_blob`` returns
 the primary blob with its sub-blobs attached as ``RmbBlob.sub_blobs``.
 
-Primary blob layout (all u32 BE unless noted, offsets from blob start):
+Section grammar (validated against 325k sections, 99.77% match):
+
+    section_block := [u32 1][u32 N_sections] section{N_sections} trailer
+    section       := [u32 5 if not first]
+                     [u32 1][u32 2]              # streams=1, type=2 (string)
+                     [u32 name_len][bytes×name_len name]
+                     [4 NUL bytes pad]
+                     [u32 = 6 or 4]              # version
+                     [u32 section_idx]           # 0..N-1
+                     [u32 = 1]                   # flag, always 1 in samples
+                     [16 NUL bytes]
+                     [4×f32 scale]               # always (1,1,1,1)
+                     [4×f32 anchor]              # per-section, repeats
+                                                 # identically across siblings
+                                                 # of the same landmark
+                     [u32 = 4][u32 = 0]          # index stream marker
+                     [u32 idx_count][u32 = 2]    # elem_size = u16
+                     [u16 BE × idx_count]        # tri-strip with 0xFFFF restart
+
+The 60-byte metadata block (version through anchor inclusive) is the
+deterministic anchor we use to walk sections — find the index-stream
+marker, walk back 60 bytes to the version field, walk back further to
+locate the streams-type marker `[1][2]` and decode the section name.
+
+Sibling-instance convention (the "_NNN world-baked sibling" insight):
+sections whose name ends in `_NNN` (1-4 ASCII digits, optionally after a
+LOD suffix) are world-baked instance siblings rather than material/LOD
+sub-meshes. A section like ``MOUN_DAM_BLDG_MainDam_003`` inside an
+``Object010_LOD00`` wrapper is a placement of the dam asset; the
+wrapper is a per-chunk visibility aggregator. ``RmbSection.nnn_index``
+and ``RmbSection.is_nnn_sibling`` surface this directly.
+
+Trailer: every section block is followed by a per-section material/
+shader binding table which encodes Xbox 360 GPU register assignments
+plus length-prefixed shader file paths (``shaders\\track\\...fx``).
+The parser captures the raw bytes plus a best-effort list of shader
+paths; the binding bytecode is not currently decoded.
+
+--- Primary blob layout (all u32 BE unless noted, offsets from blob start):
 
     0x00  u32 BE   version (=6)
     0x04  3×f32    centroid
@@ -63,23 +101,9 @@ Vertex records always start with a world-space position as 3×f32 BE in
 bytes 0..11; the remaining bytes (4..24 depending on stride) carry
 per-record normal/UV/colour and are not decoded yet.
 
-Section grammar (post-vbuf):
-
-    section_block := u32 1; u32 N_sections; section{N_sections}
-    section       := [u32 5 if not first];          # continuation marker
-                     u32 1; u32 2;                   # streams=1, type=2 (string)
-                     u32 name_len; bytes name;
-                     <transform/bbox metadata, ~0x4c bytes>
-                     u32 4; u32 0;                   # stream type=4 (indices)
-                     u32 index_count; u32 elem_size=2;
-                     u16 BE × index_count            # triangle-strip indices
-
-The metadata block is a fixed pattern (zeros, version=6, four 1.0 floats,
-four f32 bbox-ish floats) but its exact shape is not material here — the
-parser anchors on the index-stream marker `00 00 00 04 00 00 00 00` to
-locate the index buffer for each section. Indices are u16 BE with
-``0xFFFF`` restart, and we triangulate into a face list with the standard
-even/odd orientation alternation.
+Index stream: triangle-strip indices are u16 BE with ``0xFFFF`` restart,
+triangulated into a face list with the standard even/odd orientation
+alternation.
 """
 from __future__ import annotations
 
@@ -99,6 +123,19 @@ LOD_RE = re.compile(r"LOD(\d+)")
 INDEX_STREAM_MARKER = b"\x00\x00\x00\x04\x00\x00\x00\x00"
 SUB_BLOB_PREFIX = b"\x00\x00\x00\x05\x00\x00\x00\x01"
 SECTION_CONT_TYPE = 2  # u32 BE that follows SUB_BLOB_PREFIX for a section continuation
+STREAMS_TYPE_STRING = b"\x00\x00\x00\x01\x00\x00\x00\x02"  # streams=1, type=2 (string)
+SECTION_META_SIZE = 60  # bytes of fixed-size metadata before each idx-stream marker
+NAME_PAD_BYTES = 4      # NUL bytes between the section name and the metadata block
+
+# `_NNN` suffix: 2+ trailing digits, optionally after a `_LODxx` qualifier (so
+# `MainDam_003`, `VisitorCentre_04`, `Gondola_LOD00_001` all match). We require
+# at least 2 digits because `_1`/`_2` ambiguously match per-section material
+# variants (`grass_to_mud_1`, `dry_grass_3`) that aren't sibling instances.
+# The trailing digit group is captured as the sibling instance index.
+NNN_SUFFIX_RE = re.compile(r"(?:_LOD\d+)?_(\d{2,4})$")
+# Length-prefixed `shaders\...` path embedded in the trailer. Captures: u32 BE
+# length immediately before the literal `shaders\`, then `length` bytes.
+SHADER_PATH_PREFIX = b"shaders\\"
 
 
 @dataclass
@@ -106,6 +143,28 @@ class RmbSection:
     name: str
     indices: np.ndarray   # (K,) uint16, 0xFFFF = strip restart
     triangles: np.ndarray  # (M, 3) uint32 (triangulated from strips)
+    section_idx: int = 0                 # 0..N-1 within the section block
+    version: int = 6                     # observed: 6 (default), 4 (rare)
+    flag: int = 1                        # 3rd u32 of metadata; always 1 in samples
+    scale: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)
+    anchor: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+    is_nnn_sibling: bool = False         # name ends in `_NNN` (instance suffix)
+    nnn_index: Optional[int] = None      # captured digit group (e.g. 3 for `_003`)
+    shader_path: Optional[str] = None    # populated post-trailer-parse if known
+
+
+@dataclass
+class RmbTrailer:
+    """The per-blob trailer that follows the last section's index buffer.
+
+    Carries Xbox 360 GPU register binding bytecode plus the shader file
+    paths each section uses. We capture the raw bytes (so downstream
+    callers can re-parse if/when we learn more about the binding bytes)
+    and the extracted shader path list.
+    """
+    raw: bytes                                # full trailer bytes
+    offset: int                               # absolute offset of trailer start
+    shader_paths: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -128,6 +187,7 @@ class RmbSubBlob:
     voff: int                                # vertex bytes start within entry
     positions: np.ndarray                    # (N, 3) f32 game-space (Y-up)
     sections: list[RmbSection] = field(default_factory=list)
+    trailer: Optional[RmbTrailer] = None
 
 
 @dataclass
@@ -143,6 +203,7 @@ class RmbBlob:
     positions: np.ndarray                    # (N, 3) f32 game-space (Y-up)
     sections: list[RmbSection] = field(default_factory=list)
     sub_blobs: list[RmbSubBlob] = field(default_factory=list)
+    trailer: Optional[RmbTrailer] = None
     entry: Optional[Entry] = None            # populated by iter_blobs
 
 
@@ -301,75 +362,155 @@ def _scan_index_streams(buf: bytes, post: int, end: Optional[int] = None) -> lis
     return out
 
 
-def _name_at(buf: bytes, header_off: int) -> Optional[str]:
-    """Walk back from a `[u32 1][u32 2][u32 N]<ascii>` section header to
-    extract the material/section name, if present in the metadata leading
-    up to the index stream at ``header_off``.
+def _decode_section_meta(buf: bytes, idx_hdr_off: int):
+    """Decode the 60-byte metadata block immediately preceding the index
+    stream marker at ``idx_hdr_off``.
+
+    Returns ``(version, section_idx, flag, scale, anchor)`` or ``None`` if
+    the layout doesn't validate (version not in {4, 6}, or the 16-byte
+    zero region isn't NUL).
     """
-    # The string preamble is `01 00 00 00 02 00 00 00 LL <ascii*LL>`. We
-    # scan backwards within a window for `00 00 00 01 00 00 00 02` and read
-    # the length following.
-    needle = b"\x00\x00\x00\x01\x00\x00\x00\x02"
-    window_start = max(0, header_off - 0x200)
-    seg = buf[window_start:header_off]
-    p = seg.rfind(needle)
+    meta_off = idx_hdr_off - SECTION_META_SIZE
+    if meta_off < 0:
+        return None
+    ver, section_idx, flag = struct.unpack_from(">III", buf, meta_off)
+    if ver not in (4, 6):
+        return None
+    if buf[meta_off + 12:meta_off + 28] != b"\x00" * 16:
+        return None
+    scale = struct.unpack_from(">4f", buf, meta_off + 28)
+    anchor = struct.unpack_from(">4f", buf, meta_off + 44)
+    return ver, section_idx, flag, scale, anchor
+
+
+def _decode_section_name(buf: bytes, idx_hdr_off: int) -> Optional[str]:
+    """Walk back from the index stream marker at ``idx_hdr_off`` to find
+    the section name.
+
+    The 60-byte metadata block sits immediately before ``idx_hdr_off``;
+    before that is the streams-type marker ``[1][2]``, the name length,
+    the name bytes, and a 4-byte NUL pad. We scan backwards within a
+    256-byte window for the streams-type marker (deterministic anchor)
+    then read ``[u32 name_len][name_len bytes ASCII]``.
+    """
+    meta_off = idx_hdr_off - SECTION_META_SIZE
+    if meta_off < 16:
+        return None
+    win_start = max(0, meta_off - 0x100)
+    p = buf.rfind(STREAMS_TYPE_STRING, win_start, meta_off)
     if p < 0:
         return None
-    name_off = window_start + p + len(needle) + 4
-    name_len = struct.unpack_from(">I", buf, window_start + p + len(needle))[0]
-    if not (1 <= name_len <= 128) or name_off + name_len > header_off:
+    name_len_off = p + len(STREAMS_TYPE_STRING)
+    name_len = struct.unpack_from(">I", buf, name_len_off)[0]
+    if not (1 <= name_len <= 128):
         return None
-    name_bytes = buf[name_off:name_off + name_len]
+    name_off = name_len_off + 4
+    name_end = name_off + name_len
+    if name_end + NAME_PAD_BYTES > meta_off:
+        # Pad is short — accept if at least 1 NUL separator. Some entries
+        # may use shorter padding; we don't enforce a minimum.
+        if name_end > meta_off:
+            return None
+    name_bytes = buf[name_off:name_end]
     if not all(0x20 <= b < 0x7f for b in name_bytes):
         return None
     return name_bytes.decode("ascii")
 
 
+def _annotate_nnn_sibling(name: str) -> tuple[bool, Optional[int]]:
+    """Detect whether ``name`` ends in the `_NNN` instance suffix.
+
+    Returns ``(is_sibling, nnn_index)``. The match accepts an optional
+    `_LODxx` qualifier between the asset name and the digit group, so
+    ``Gondola_LOD00_001`` and ``MOUN_DAM_BLDG_MainDam_003`` both count.
+    Generic material names like ``Material__187`` match the regex but
+    we exclude them — they're per-section material handles, not
+    placement instances.
+    """
+    if name.startswith("Material_") or name.startswith("material_"):
+        return False, None
+    m = NNN_SUFFIX_RE.search(name)
+    if not m:
+        return False, None
+    return True, int(m.group(1))
+
+
 def _strip_to_triangles(idx: np.ndarray) -> np.ndarray:
     """Convert a triangle-strip with 0xFFFF restart into (M, 3) uint32.
 
-    Standard winding alternation: even strip-position emits (a, b, c),
-    odd emits (a, c, b) to keep triangles consistently oriented.
-    Degenerate triangles (any two indices equal) are dropped.
+    Standard winding alternation: at even strip-position we emit
+    ``(a, b, c)``, at odd we emit ``(a, c, b)`` to keep triangles
+    consistently oriented. Degenerate triangles (any two indices equal)
+    are dropped.
+
+    Implemented via a single numpy pass: stack consecutive triples
+    ``[i-2, i-1, i]`` for every position ``i >= 2``, mark restart
+    boundaries (a window that overlaps a 0xFFFF index) as invalid, swap
+    the middle two columns at odd parity, and filter degenerates with a
+    boolean mask. Two orders of magnitude faster than the equivalent
+    Python loop on the 24k+ multi-section world-placed pool.
     """
-    tris: list[tuple[int, int, int]] = []
-    a = b = -1
-    n = 0  # count of valid verts in current strip
-    for v in idx.tolist():
-        if v == 0xFFFF:
-            n = 0
-            a = b = -1
-            continue
-        if n >= 2:
-            c = v
-            if a != b and b != c and a != c:
-                if (n - 2) % 2 == 0:
-                    tris.append((a, b, c))
-                else:
-                    tris.append((a, c, b))
-            a, b = b, c
-        elif n == 0:
-            a = v
-        else:  # n == 1
-            b = v
-        n += 1
-    if not tris:
+    n = idx.shape[0]
+    if n < 3:
         return np.zeros((0, 3), dtype=np.uint32)
-    return np.asarray(tris, dtype=np.uint32)
+    a32 = idx.astype(np.uint32, copy=False)
+    # Three rolling columns of consecutive triples (rows = strip positions
+    # 2..n-1). Length = n-2.
+    a = a32[:-2]
+    b = a32[1:-1]
+    c = a32[2:]
+
+    # Per-row strip parity. We need the 0-based offset of each row from
+    # the most recent strip start. Compute strip-start positions (after
+    # a 0xFFFF restart, OR at index 0) and run a forward fill so each
+    # row knows its strip-relative position.
+    positions = np.arange(n, dtype=np.int64)
+    is_restart = (idx == 0xFFFF)
+    # Strip starts the index AFTER each restart, plus index 0.
+    strip_start = np.where(is_restart, positions + 1, 0)
+    np.maximum.accumulate(strip_start, out=strip_start)
+    rel = positions - strip_start  # 0-based offset within current strip
+
+    # A valid triangle window starts when rel[i] >= 2 AND none of
+    # idx[i-2:i+1] is 0xFFFF.
+    rel_window = rel[2:]
+    no_restart = ~(is_restart[:-2] | is_restart[1:-1] | is_restart[2:])
+    valid = (rel_window >= 2) & no_restart
+
+    # Drop degenerates (any two of the three indices equal).
+    valid &= (a != b) & (b != c) & (a != c)
+
+    if not valid.any():
+        return np.zeros((0, 3), dtype=np.uint32)
+
+    a = a[valid]
+    b = b[valid]
+    c = c[valid]
+    parity_odd = (rel_window[valid] & 1).astype(bool)
+
+    tris = np.empty((a.shape[0], 3), dtype=np.uint32)
+    tris[:, 0] = a
+    # Even parity → (a, b, c); odd parity → (a, c, b).
+    tris[:, 1] = np.where(parity_odd, c, b)
+    tris[:, 2] = np.where(parity_odd, b, c)
+    return tris
 
 
 def _parse_sections(buf: bytes, post: int, vcount: int,
-                    end: Optional[int] = None) -> list[RmbSection]:
-    """Parse all index streams in ``buf[post:end]`` whose indices fit
+                    end: Optional[int] = None) -> tuple[list[RmbSection], int]:
+    """Parse all index streams in ``buf[post:end)`` whose indices fit
     ``vcount`` (i.e. that reference *this* blob's vertex buffer).
+
+    Returns ``(sections, last_idx_buf_end)`` so callers know where the
+    trailer (or next sub-blob) begins.
     """
     streams = _scan_index_streams(buf, post, end)
     sections: list[RmbSection] = []
+    last_idx_buf_end = post
     for header_off, count in streams:
         ibuf_off = header_off + 16
-        idx_view = np.frombuffer(
-            buf[ibuf_off:ibuf_off + count * 2], dtype=">u2",
-        )
+        ibuf_end = ibuf_off + count * 2
+        idx_view = np.frombuffer(buf[ibuf_off:ibuf_end], dtype=">u2")
         valid_mask = idx_view != 0xFFFF
         if not valid_mask.any():
             continue
@@ -379,9 +520,89 @@ def _parse_sections(buf: bytes, post: int, vcount: int,
             continue
         idx = np.ascontiguousarray(idx_view, dtype=np.uint16)
         tris = _strip_to_triangles(idx)
-        name = _name_at(buf, header_off) or ""
-        sections.append(RmbSection(name=name, indices=idx, triangles=tris))
-    return sections
+        name = _decode_section_name(buf, header_off) or ""
+        meta = _decode_section_meta(buf, header_off)
+        if meta is not None:
+            ver, section_idx, flag, scale, anchor = meta
+        else:
+            ver, section_idx, flag = 6, len(sections), 1
+            scale, anchor = (1.0, 1.0, 1.0, 1.0), (0.0, 0.0, 0.0, 0.0)
+        is_sib, nnn_idx = _annotate_nnn_sibling(name)
+        sections.append(RmbSection(
+            name=name, indices=idx, triangles=tris,
+            section_idx=section_idx, version=ver, flag=flag,
+            scale=scale, anchor=anchor,
+            is_nnn_sibling=is_sib, nnn_index=nnn_idx,
+        ))
+        last_idx_buf_end = max(last_idx_buf_end, ibuf_end)
+    return sections, last_idx_buf_end
+
+
+def _extract_shader_paths(buf: bytes, start: int, end: int) -> list[str]:
+    """Best-effort scan of the trailer for length-prefixed `shaders\\…`
+    paths.
+
+    Each shader path is stored as ``[u32 BE length][length bytes ASCII]``.
+    We anchor on the literal `shaders\\` prefix (8 bytes) and read the
+    u32 BE length 4 bytes earlier; any candidate whose length matches a
+    plausible path of printable ASCII is captured.
+    """
+    paths: list[str] = []
+    pos = start
+    while pos < end:
+        i = buf.find(SHADER_PATH_PREFIX, pos, end)
+        if i < 0:
+            break
+        if i < start + 4:
+            pos = i + 1
+            continue
+        length = struct.unpack_from(">I", buf, i - 4)[0]
+        if not (8 <= length <= 256):
+            pos = i + 1
+            continue
+        path_end = i + length
+        if path_end > end:
+            pos = i + 1
+            continue
+        path_bytes = buf[i:path_end]
+        if not all(0x20 <= b < 0x7f for b in path_bytes):
+            pos = i + 1
+            continue
+        paths.append(path_bytes.decode("ascii"))
+        pos = path_end
+    return paths
+
+
+def _parse_trailer(buf: bytes, trailer_start: int, trailer_end: int
+                   ) -> Optional[RmbTrailer]:
+    """Capture the bytes between the last index buffer and the next
+    sub-blob (or EOF), and surface any shader paths embedded in it.
+
+    The trailer's full grammar (per-section material/binding records,
+    Xbox 360 GPU register binding bytecode, shader paths) is only
+    partly understood; this function captures what's reliably
+    decodable plus the raw bytes for downstream re-parsing.
+    """
+    if trailer_end <= trailer_start:
+        return None
+    raw = bytes(buf[trailer_start:trailer_end])
+    paths = _extract_shader_paths(buf, trailer_start, trailer_end)
+    return RmbTrailer(raw=raw, offset=trailer_start, shader_paths=paths)
+
+
+def _attribute_shader_paths(sections: list[RmbSection], paths: list[str]) -> None:
+    """Attribute trailer shader paths to sections by section_idx.
+
+    The shader path table appears once per section block in
+    ``section_idx`` order. When the path count equals the section count
+    we attribute 1:1; otherwise we leave ``shader_path`` as ``None``
+    rather than guess.
+    """
+    if not paths or len(paths) != len(sections):
+        return
+    by_idx = sorted(sections, key=lambda s: s.section_idx)
+    for s, p in zip(by_idx, paths):
+        s.shader_path = p
 
 
 # -- public API ---------------------------------------------------------------
@@ -406,7 +627,10 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
     primary_end = sub_starts[0] if sub_starts else len(buf)
 
     positions = _decode_positions(buf, voff, vc, st)
-    sections = _parse_sections(buf, post, vc, end=primary_end)
+    sections, primary_idx_end = _parse_sections(buf, post, vc, end=primary_end)
+    primary_trailer = _parse_trailer(buf, primary_idx_end, primary_end)
+    if primary_trailer is not None:
+        _attribute_shader_paths(sections, primary_trailer.shader_paths)
     lod_match = LOD_RE.search(tag)
     blob = RmbBlob(
         tag=tag,
@@ -419,6 +643,7 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
         voff=voff,
         positions=positions,
         sections=sections,
+        trailer=primary_trailer,
     )
 
     # Walk sub-blobs sequentially. Each sub-blob's section region runs
@@ -431,7 +656,10 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
             continue
         s_end = sub_starts[i + 1] if i + 1 < len(sub_starts) else len(buf)
         s_positions = _decode_positions(buf, s_voff, s_vc, s_st)
-        s_sections = _parse_sections(buf, s_post, s_vc, end=s_end)
+        s_sections, s_idx_end = _parse_sections(buf, s_post, s_vc, end=s_end)
+        s_trailer = _parse_trailer(buf, s_idx_end, s_end)
+        if s_trailer is not None:
+            _attribute_shader_paths(s_sections, s_trailer.shader_paths)
         s_lod = LOD_RE.search(s_tag)
         blob.sub_blobs.append(RmbSubBlob(
             tag=s_tag,
@@ -444,6 +672,7 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
             voff=s_voff,
             positions=s_positions,
             sections=s_sections,
+            trailer=s_trailer,
         ))
     return blob
 

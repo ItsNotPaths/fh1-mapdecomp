@@ -64,7 +64,7 @@ def extract_terrain_hi(
             continue
         name = f"{written:06d}.npz"
         written += 1
-        np.savez_compressed(out_dir / name, positions=positions.astype(np.float32, copy=False))
+        np.savez(out_dir / name, positions=positions.astype(np.float32, copy=False))
         bb_min = positions.min(axis=0)
         bb_max = positions.max(axis=0)
         tiles.append({

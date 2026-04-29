@@ -346,7 +346,7 @@ def extract_collobjs(
             else:
                 tris = np.zeros((0, 3), dtype=np.uint32)
             name = f"{handle:06d}.npz"
-            np.savez_compressed(
+            np.savez(
                 blob_dir / name,
                 positions=blob.positions.astype(np.float32, copy=False),
                 faces=tris,

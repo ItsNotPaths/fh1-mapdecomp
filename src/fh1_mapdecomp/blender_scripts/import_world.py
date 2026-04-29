@@ -27,6 +27,8 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
+
 
 def parse_args():
     import argparse
@@ -155,11 +157,11 @@ def make_mesh_from_npz(name, npz_path, variant):
 
 def _make_v42k7_instance_gn(name, src_obj):
     """Build a Geometry Nodes group that instances ``src_obj`` at every
-    point of the input, reading the per-point ``rot_euler`` attribute
-    for rotation.
+    point of the input, reading per-point ``rot_euler`` (FLOAT_VECTOR)
+    and ``inst_scale`` (FLOAT) attributes for rotation and per-instance
+    scale.
     """
     ng = bpy.data.node_groups.new(name, "GeometryNodeTree")
-    # Sockets: Geometry in + out.
     if hasattr(ng, "interface"):
         ng.interface.new_socket("Geometry", in_out="INPUT",  socket_type="NodeSocketGeometry")
         ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
@@ -171,20 +173,31 @@ def _make_v42k7_instance_gn(name, src_obj):
     n_out = ng.nodes.new("NodeGroupOutput")
     n_obj = ng.nodes.new("GeometryNodeObjectInfo")
     n_obj.inputs["Object"].default_value = src_obj
-    n_attr = ng.nodes.new("GeometryNodeInputNamedAttribute")
-    n_attr.data_type = "FLOAT_VECTOR"
-    n_attr.inputs["Name"].default_value = "rot_euler"
+    n_attr_rot = ng.nodes.new("GeometryNodeInputNamedAttribute")
+    n_attr_rot.data_type = "FLOAT_VECTOR"
+    n_attr_rot.inputs["Name"].default_value = "rot_euler"
+    n_attr_scale = ng.nodes.new("GeometryNodeInputNamedAttribute")
+    n_attr_scale.data_type = "FLOAT"
+    n_attr_scale.inputs["Name"].default_value = "inst_scale"
+    # Splat scalar to vec3 for the Scale socket.
+    n_combine = ng.nodes.new("ShaderNodeCombineXYZ")
     n_inst = ng.nodes.new("GeometryNodeInstanceOnPoints")
 
-    n_in.location  = (-600, 0)
-    n_obj.location = (-400, -200)
-    n_attr.location = (-400, -400)
+    n_in.location  = (-700, 0)
+    n_obj.location = (-500, -200)
+    n_attr_rot.location = (-500, -380)
+    n_attr_scale.location = (-500, -560)
+    n_combine.location = (-260, -560)
     n_inst.location = (0, 0)
     n_out.location = (300, 0)
 
     ng.links.new(n_in.outputs["Geometry"],       n_inst.inputs["Points"])
     ng.links.new(n_obj.outputs["Geometry"],      n_inst.inputs["Instance"])
-    ng.links.new(n_attr.outputs["Attribute"],    n_inst.inputs["Rotation"])
+    ng.links.new(n_attr_rot.outputs["Attribute"], n_inst.inputs["Rotation"])
+    ng.links.new(n_attr_scale.outputs["Attribute"], n_combine.inputs["X"])
+    ng.links.new(n_attr_scale.outputs["Attribute"], n_combine.inputs["Y"])
+    ng.links.new(n_attr_scale.outputs["Attribute"], n_combine.inputs["Z"])
+    ng.links.new(n_combine.outputs["Vector"],    n_inst.inputs["Scale"])
     ng.links.new(n_inst.outputs["Instances"],    n_out.inputs["Geometry"])
     return ng
 
@@ -309,6 +322,7 @@ def _import_inst_dir(
 
     per_handle_pos: dict = {}
     per_handle_rot: dict = {}
+    per_handle_scale: dict = {}
     for chunk in chunks_v:
         for sec in chunk["sections"]:
             insts = sec["instances"]
@@ -319,9 +333,11 @@ def _import_inst_dir(
                     continue
                 p = per_handle_pos.setdefault(h, [])
                 r = per_handle_rot.setdefault(h, [])
+                s = per_handle_scale.setdefault(h, [])
                 for inst in insts:
                     p.append(inst["pos"])
                     r.append(inst["rot"])
+                    s.append(float(inst.get("scale", 1.0)))
 
     col = get_or_make_collection(collection)
     mat = get_or_make_material(material_variant)
@@ -371,10 +387,17 @@ def _import_inst_dir(
         for k in range(len(rot_bl)):
             M = Matrix(tuple(tuple(float(v) for v in row) for row in rot_bl[k]))
             eulers[k] = tuple(M.to_euler("XYZ"))
-        attr = pc_mesh.attributes.new(
+        attr_rot = pc_mesh.attributes.new(
             name="rot_euler", type="FLOAT_VECTOR", domain="POINT",
         )
-        attr.data.foreach_set("vector", eulers.reshape(-1))
+        attr_rot.data.foreach_set("vector", eulers.reshape(-1))
+
+        scales = np.asarray(per_handle_scale.get(h, [1.0] * len(positions_bl)),
+                            dtype=np.float32)
+        attr_scale = pc_mesh.attributes.new(
+            name="inst_scale", type="FLOAT", domain="POINT",
+        )
+        attr_scale.data.foreach_set("value", scales)
 
         pc_obj = bpy.data.objects.new(
             f"{inst_prefix}/{h:06d}_{blob['tag']}", pc_mesh,
@@ -394,6 +417,32 @@ def _import_inst_dir(
         f"{inst_total} instances (via Geometry Nodes)",
         file=sys.stderr,
     )
+
+
+def _build_mesh_from_arrays(name, verts_xyz, tris, mat):
+    """Build a bpy.data.meshes object from numpy ``(N,3) f32`` and
+    ``(M,3) i32`` arrays via the foreach_set buffer API.
+
+    ~5-10× faster than ``mesh.from_pydata`` once the mesh count climbs
+    into the tens of thousands: ``foreach_set`` does a single contiguous
+    memcpy instead of iterating over Python tuples and re-allocating
+    Blender's internal MLoop / MPoly arrays for each vertex.
+    """
+    n_v = int(verts_xyz.shape[0])
+    n_t = int(tris.shape[0])
+    mesh = bpy.data.meshes.new(name)
+    mesh.vertices.add(n_v)
+    mesh.vertices.foreach_set("co", verts_xyz.reshape(-1))
+    mesh.loops.add(n_t * 3)
+    mesh.loops.foreach_set("vertex_index", tris.reshape(-1))
+    mesh.polygons.add(n_t)
+    mesh.polygons.foreach_set("loop_start",
+                              (np.arange(n_t, dtype=np.int32) * 3))
+    mesh.polygons.foreach_set("loop_total",
+                              np.full(n_t, 3, dtype=np.int32))
+    mesh.update(calc_edges=True)
+    mesh.materials.append(mat)
+    return mesh
 
 
 def _import_rmb_world_dir(rw_dir) -> None:
@@ -418,12 +467,15 @@ def _import_rmb_world_dir(rw_dir) -> None:
           file=sys.stderr)
     col = get_or_make_collection("fh1_rmb_world")
     mat = get_or_make_material("rmb_world")
+    col_link = col.objects.link
+    new_mesh = bpy.data.meshes.new
+    new_obj = bpy.data.objects.new
 
     built = 0
     total_v = 0
     total_t = 0
     for i, b in enumerate(blobs):
-        if i % 2000 == 0:
+        if i % 5000 == 0:
             print(f"  rmb_world {i}/{len(blobs)} "
                   f"(built {built}, verts {total_v})", file=sys.stderr)
         npz = rw_dir / b["npz"]
@@ -436,20 +488,37 @@ def _import_rmb_world_dir(rw_dir) -> None:
         except Exception as ex:
             print(f"    blob {b['handle']} load failed: {ex}", file=sys.stderr)
             continue
-        if len(faces) == 0 or len(positions) == 0:
+        n_v = int(positions.shape[0])
+        n_t = int(faces.shape[0])
+        if n_v == 0 or n_t == 0:
             continue
-        verts = [(float(p[0]), float(-p[2]), float(p[1])) for p in positions]
-        tris = [(int(f[0]), int(f[1]), int(f[2])) for f in faces]
-        name = f"rmb_world/{b['handle']:06d}_{b['tag']}"
-        mesh = bpy.data.meshes.new(name)
-        mesh.from_pydata(verts, [], tris)
+        # Y-up game-space → Z-up Blender: (x, y, z) -> (x, -z, y).
+        verts = np.empty((n_v, 3), dtype=np.float32)
+        verts[:, 0] = positions[:, 0]
+        verts[:, 1] = -positions[:, 2]
+        verts[:, 2] = positions[:, 1]
+        tris = faces.astype(np.int32, copy=False)
+
+        section_idx = int(b.get("section_idx", 0))
+        sect_part = f"_{section_idx:02d}" if section_idx else ""
+        name = f"rmb_world/{b['handle']:06d}{sect_part}_{b['tag']}"
+
+        mesh = new_mesh(name)
+        mesh.vertices.add(n_v)
+        mesh.vertices.foreach_set("co", verts.reshape(-1))
+        mesh.loops.add(n_t * 3)
+        mesh.loops.foreach_set("vertex_index", tris.reshape(-1))
+        mesh.polygons.add(n_t)
+        mesh.polygons.foreach_set("loop_start",
+                                  np.arange(n_t, dtype=np.int32) * 3)
+        mesh.polygons.foreach_set("loop_total",
+                                  np.full(n_t, 3, dtype=np.int32))
         mesh.update(calc_edges=True)
         mesh.materials.append(mat)
-        obj = bpy.data.objects.new(name, mesh)
-        col.objects.link(obj)
+        col_link(new_obj(name, mesh))
         built += 1
-        total_v += len(verts)
-        total_t += len(tris)
+        total_v += n_v
+        total_t += n_t
     print(
         f"[import_world] rmb_world: {built} meshes, "
         f"{total_v} verts, {total_t} triangles",
@@ -476,6 +545,18 @@ def main():
     print(f"[import_world] {len(chunks)} chunks", file=sys.stderr)
 
     clean_scene()
+
+    # Mute the depsgraph during bulk import — without this, every
+    # ``objects.link`` triggers a full graph rebuild and the per-mesh
+    # cost climbs from ~µs to >1 ms once the scene has tens of thousands
+    # of objects. We restore the dummy override at the end of main().
+    try:
+        _orig_dg_update_pre = bpy.app.handlers.depsgraph_update_pre[:]
+        _orig_dg_update_post = bpy.app.handlers.depsgraph_update_post[:]
+        bpy.app.handlers.depsgraph_update_pre.clear()
+        bpy.app.handlers.depsgraph_update_post.clear()
+    except Exception:
+        _orig_dg_update_pre = _orig_dg_update_post = None
 
     collections = {}
     for v in set(c["variant"] for c in chunks):
@@ -559,6 +640,17 @@ def main():
                          blob_prefix="collobjs_blob")
     if args.rmb_world:
         _import_rmb_world_dir(Path(args.rmb_world))
+
+    # Restore depsgraph handlers and trigger a single update so the
+    # scene is consistent before we save / render.
+    if _orig_dg_update_pre is not None:
+        bpy.app.handlers.depsgraph_update_pre[:] = _orig_dg_update_pre
+    if _orig_dg_update_post is not None:
+        bpy.app.handlers.depsgraph_update_post[:] = _orig_dg_update_post
+    try:
+        bpy.context.view_layer.update()
+    except Exception:
+        pass
 
     bpy.ops.object.camera_add(location=(0, -10000, 5000), rotation=(1.1, 0, 0))
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 2000))

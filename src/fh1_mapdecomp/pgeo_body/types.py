@@ -35,7 +35,7 @@ class MeshData:
 
 def save(mesh: MeshData, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(
+    np.savez(
         path,
         positions=mesh.positions.astype(np.float32, copy=False),
         faces=mesh.faces.astype(np.uint32, copy=False),

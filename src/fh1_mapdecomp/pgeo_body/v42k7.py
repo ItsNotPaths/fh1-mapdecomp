@@ -148,12 +148,16 @@ class V42k7Section:
     """One section of a v42k7 instance group.
 
     ``rmb_handles`` lists the 1..3 global rmb-pool handles this section
-    references. ``floats`` is the raw 6-float prefix from the section
-    record (interpreted as a local bbox: min_x, min_y, max_x, max_y,
-    max_z, min_z — but exposed verbatim for downstream interpretation).
+    references — as resolved by direct (unshifted) index lookup into
+    ``section_handles``. ``handle_indices`` carries the underlying raw
+    indices so callers can apply a per-section shift (e.g. u0=0 sections
+    in some chunks index the "metadata half" of the array and the engine
+    renders the corresponding "render half" entry at idx + table_b_count
+    - 1). ``floats`` is the raw 6-float prefix (LOCAL bbox).
     """
     floats: tuple[float, float, float, float, float, float]
     rmb_handles: list[int]
+    handle_indices: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -185,6 +189,22 @@ class V42k7TableBRecord:
         u3   secondary count/index (unused by placement)
         u4   separator multiplier C — the bytes between this section's
              instance block and the next section are 32 * C
+
+    ``slot_skip_mask`` is the trailing u32 at +0x54 of the 88-byte record
+    (BE u32). It is the per-section "skip mask" the engine uses to pick
+    WHICH of the 1-3 handle slots actually render: bit N set = SKIP
+    slot N (do not render this slot). Examples (validated):
+        chunk 1463 sec[5] [Decals393, BarrierMetal_LOD00, BarrierMetal_LOD01]
+            mask = 0x05 = 0b101 → skip slots 0 and 2 → render slot 1
+            (BarrierMetal_LOD00, the canonical festival barrier)
+        chunk 1463 sec[1] [TERR_CUBE, Countdown_Left]
+            mask = 0x02 = 0b010 → skip slot 1 → render slot 0
+            (Countdown_Left is race-only, not in freeroam)
+        chunk 1463 sec[4] [Road31_LOD01, Decals08]
+            mask = 0x05 → skip 0,2 → render slot 1 (Decals08)
+    For 1-slot sections the field is occasionally re-purposed (sometimes
+    holds a float ~1.0); callers should mask only the bits within the
+    section's actual slot count.
     """
     section_index: int
     instance_count: int
@@ -195,6 +215,7 @@ class V42k7TableBRecord:
     extra_floats: tuple[float, float, float, float]
     cull_box: tuple[float, float, float, float]
     runtime_ptrs: tuple[int, int, int]
+    slot_skip_mask: int = 0
 
 
 @dataclass
@@ -357,14 +378,21 @@ def parse_layout(buf: bytes, header: PgeoHeader | None = None) -> V42k7Layout | 
         else:
             probe += 4
 
+    # Direct resolution (no shift). Callers that need a shifted lookup
+    # (e.g. u0=0 sections in certain chunks) can apply it via
+    # handle_indices + a known shift.
     sections: list[V42k7Section] = []
     for f6, ptrs in raw_records:
         handles: list[int] = []
+        indices: list[int] = []
         for p in ptrs:
             idx = (p - base_ptr) // 4
             if 0 <= idx < n_handles:
                 handles.append(section_handles[idx])
-        sections.append(V42k7Section(floats=f6, rmb_handles=handles))
+                indices.append(idx)
+        sections.append(V42k7Section(
+            floats=f6, rmb_handles=handles, handle_indices=indices,
+        ))
 
     return V42k7Layout(
         name=name,
@@ -433,6 +461,7 @@ def parse_table_b(buf: bytes, layout: V42k7Layout) -> list[V42k7TableBRecord] | 
         seq = struct.unpack_from(">5I", buf, cursor + 0x20)
         cull = struct.unpack_from(">4f", buf, cursor + 0x34)
         ptrs = struct.unpack_from("<3I", buf, cursor + 0x48)
+        slot_skip_mask = struct.unpack_from(">I", buf, cursor + 0x54)[0]
         records.append(V42k7TableBRecord(
             section_index=seq[1],
             instance_count=seq[2],
@@ -443,6 +472,7 @@ def parse_table_b(buf: bytes, layout: V42k7Layout) -> list[V42k7TableBRecord] | 
             extra_floats=extra,
             cull_box=cull,
             runtime_ptrs=ptrs,
+            slot_skip_mask=slot_skip_mask,
         ))
         cursor = rec_end
         # All records except the last are followed by FFFFFFFF.

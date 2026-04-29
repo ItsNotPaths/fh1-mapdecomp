@@ -10,7 +10,7 @@
 #       Triggers .github/workflows/release.yml via the gh CLI.
 #
 # Prereqs for --local:
-#   ./download-deps.sh     # populates vendor/libmspack and vendor/xex2-unpacker
+#   ./download-deps.sh     # populates vendor/libmspack
 #   pip install pyinstaller
 set -euo pipefail
 
@@ -60,10 +60,6 @@ build_local() {
         echo "error: $MSPACK missing — run ./download-deps.sh first" >&2
         exit 1
     fi
-    if [ ! -d "$VENDOR/xex2-unpacker/src/xex2" ]; then
-        echo "error: vendor/xex2-unpacker missing — run ./download-deps.sh first" >&2
-        exit 1
-    fi
     if ! command -v pyinstaller >/dev/null 2>&1; then
         echo "error: pyinstaller not on PATH (pip install pyinstaller)" >&2
         exit 2
@@ -91,14 +87,11 @@ build_local() {
         --onefile \
         --name fh1-mapdecomp \
         --paths "$SRC" \
-        --paths "$VENDOR/xex2-unpacker/src" \
         --add-binary "$work/lzxd_helper:." \
         --add-data "$SRC/fh1_mapdecomp/blender_scripts:fh1_mapdecomp/blender_scripts" \
         --collect-submodules fh1_mapdecomp \
         --collect-submodules fh1_mapdecomp.pgeo_body \
         --hidden-import fh1_mapdecomp.pgeo_body.terrain \
-        --hidden-import xex2 \
-        --collect-submodules xex2 \
         --distpath "$RELEASE_DIR" \
         --workpath "$work/pyi-work" \
         --specpath "$work/pyi-spec" \
