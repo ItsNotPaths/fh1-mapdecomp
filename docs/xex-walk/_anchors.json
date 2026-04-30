@@ -1,0 +1,92 @@
+[
+  {
+    "label": "rmb_load_format_a",
+    "needle_bytes": "25735c62696e5c25732e253035642e726d622e62696e",
+    "needle_str": "%s\\bin\\%s.%05d.rmb.bin",
+    "hits": 1,
+    "first_file_off": 2331875,
+    "first_va": 2183369955,
+    "context": "edia\\tracks\\%s\\bin\\%s.%05d.rmb.bin...game:\\Med"
+  },
+  {
+    "label": "rmb_load_format_b",
+    "needle_bytes": "5c25735c62696e5c25732e253035642e726d622e62696e",
+    "needle_str": "\\%s\\bin\\%s.%05d.rmb.bin",
+    "hits": 1,
+    "first_file_off": 2331874,
+    "first_va": 2183369954,
+    "context": "Media\\tracks\\%s\\bin\\%s.%05d.rmb.bin...game:\\Med"
+  },
+  {
+    "label": "pgeo_ext",
+    "needle_bytes": "2e7067656f",
+    "needle_str": ".pgeo",
+    "hits": 4,
+    "first_file_off": 53838,
+    "first_va": 2181091918,
+    "context": "r_Checkpoint.pgeo.ANIM_GPLY_L"
+  },
+  {
+    "label": "sect_count_assert_a",
+    "needle_bytes": "53656374696f6e436f756e74203e2030",
+    "needle_str": "SectionCount > 0",
+    "hits": 2,
+    "first_file_off": 762592,
+    "first_va": 2181800672,
+    "context": "lder.cpp....SectionCount > 0....%s was n"
+  },
+  {
+    "label": "sect_count_assert_b",
+    "needle_bytes": "53656374696f6e436f756e74203c204d6178696d756d53656374696f6e436f756e74",
+    "needle_str": "SectionCount < MaximumSectionCount",
+    "hits": 2,
+    "first_file_off": 762676,
+    "first_va": 2181800756,
+    "context": "lder.cpp....SectionCount < MaximumSectionCount..%s was not"
+  },
+  {
+    "label": "oegp_magic",
+    "needle_bytes": "4f454750",
+    "needle_str": "OEGP",
+    "hits": 1,
+    "first_file_off": 19635184,
+    "first_va": 2200714736,
+    "context": "@C33?...>...OEGP...*...*...*"
+  },
+  {
+    "label": "collobjs_ref",
+    "needle_bytes": "436f6c6c4f626a73",
+    "needle_str": "CollObjs",
+    "hits": 1,
+    "first_file_off": 74384,
+    "first_va": 2181112464,
+    "context": "....FreePlayCollObjs........UPDA"
+  },
+  {
+    "label": "anim_hardcoded",
+    "needle_bytes": "414e494d5f47504c595f4c617365725f436865636b706f696e742e7067656f",
+    "needle_str": "ANIM_GPLY_Laser_Checkpoint.pgeo",
+    "hits": 1,
+    "first_file_off": 53812,
+    "first_va": 2181091892,
+    "context": "atedObjects\\ANIM_GPLY_Laser_Checkpoint.pgeo.ANIM_GPLY_L"
+  },
+  {
+    "label": "load_object_fn",
+    "needle_bytes": "4c6f61644f626a656374",
+    "needle_str": "LoadObject",
+    "hits": 2,
+    "first_file_off": 19595460,
+    "first_va": 2200675012,
+    "context": ".....?AVCPreLoadObject@@......~..."
+  },
+  {
+    "label": "streaming_fn",
+    "needle_bytes": "53747265616d696e67",
+    "needle_str": "Streaming",
+    "hits": 40,
+    "first_file_off": 517110,
+    "first_va": 2181555190,
+    "context": "ation.CClearStreamingBuffer...CCl"
+  }
+]

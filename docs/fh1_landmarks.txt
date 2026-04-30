@@ -1,0 +1,25 @@
+# fh1 landmark annotations — manual placements for assets we can't extract programmatically.
+# Format:  asset_tag<TAB>blender_x<TAB>blender_y<TAB>radius<TAB>mode
+# All coords in BLENDER world space (X, Y).  Z (elevation) is auto-derived from
+# the nearest v42k7 transform within `radius` meters.
+#
+# Modes:
+#   single   = one placement at the exact (x,y); no search.
+#   snap     = find the closest v42k7 transform within `radius` meters and place there.
+#   scatter  = place one instance at EVERY v42k7 transform within `radius` meters.
+#              Use for dense props like haybale fields or fence runs.
+#
+# Asset-tag resolution: we strip _LOD\d\d / _NOLOD suffixes and pick the lowest-
+# LOD-number variant of any matching pool entry. That way you only need the
+# base name (e.g. `PLA_GC_GolfCart`).
+#
+# Lines starting with # are ignored. TAB-separated.
+
+# Tag                              X        Y        radius  mode
+PLA_GC_GolfCart                    -2980    -1910    30      snap
+PLA_FARM_WindmillWood              -1500    -3000    50      single
+GLOB_STFN_WindTurbine_02           -2300     5000   200      single
+STFT_Reservoir_Haybale             -1700     3500   200      scatter
+GrandstandStraight                 -1500     -350    20      snap
+OBJ_BarrierBrand                   -2299     -103    150     scatter
+FP_AutoshowTent                     -825     -108     20     snap

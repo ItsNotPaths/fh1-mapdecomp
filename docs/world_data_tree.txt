@@ -1,0 +1,158 @@
+# tracks/colorado/Ribbon_00/  +  tracks/colorado/bin.zip — world data tree
+# Compiled 2026-04-28
+#
+# Status legend:
+#   [✓] decoded / understood
+#   [~] partially decoded
+#   [✗] confirmed not a placement source
+#   [?] not yet investigated
+#
+# Anchor: /run/media/paths/SSS-Games/fh1-xex/4D5309C9/00007000/2DC7007B/media/
+#         tracks/colorado/
+
+bin.zip                            ★ MAIN WORLD DATA — 218,571 entries total
+   extension breakdown:
+   [✓] bin       115,200    rmb pool entries (the 102,012-handle global asset
+                            library; bin.zip stores duplicates of each rmb under
+                            case-variant filenames, ~5-8x per asset).
+   [~] pgeo       41,587    PGEO chunks. Header at +0x00 ('OEGP' magic);
+                            classify() splits these by version+kind:
+                            ─────── pgeo classifications ───────
+                            [✓] v42k7         2,031   ★ STREAMING CHUNKS — the
+                                                      'Models_Ungrouped_*' /
+                                                      'models_proc_clrd_*' bodies
+                                                      with section + Table B +
+                                                      position table + 79-record
+                                                      chunk-VBUF. Slot picker
+                                                      still unsolved.
+                            [✗] v44k5           202   foliage / distance impostor;
+                                                      not a building source.
+                            [✗] vegetation      278   per-instance foliage; only
+                                                      bbox info readable.
+                            [✗] grass         3,199   procedural grass; bbox only.
+                            [✗] crowd         1,783   per-instance crowd actors;
+                                                      bbox only — body undecoded.
+                            [~] landmark_anim    33   Maya tool-export rig
+                                                      metadata strings ONLY (zero
+                                                      world bboxes match landmarks).
+                                                      Body undecoded; placement
+                                                      data unlikely but not ruled
+                                                      out 100%.
+                            [✗] terrain         444   terrain mesh chunks (not
+                                                      world objects).
+   [✓] fiz        16,934    FOLIAGE CELLS — fully decoded:
+                            'fiz ' magic, version 1, 116m × 116m bbox per cell,
+                            10m sub-cell, 0.1m quant. Tables A/B with 12-byte
+                            records. Vegetation only. Not a building source.
+   [—] bix        42,657    Texture container. Not investigated (textures only).
+   [—] sh          4,768    Shader binaries.
+   [—] soundscape  4,675    Audio config per chunk.
+   [—] pvsz        3,502    Per-zone visibility hash buckets.
+   [✗] bundle        429    Closed earlier — no placements.
+   [—] fxobj         173    FX objects (particles).
+   [—] fev            66    FMOD event banks.
+   [—] fsb            66    FMOD soundbanks.
+
+Ribbon_00/                         per-ribbon (track-graph-level) files
+   [✓] CollObjs.xml               21,877 entries; only 48 resolve to rmb pool.
+                                  Types: CO_CLRD_FenceF (3829), CO_FEST_EquipSign
+                                  (2743), CO_MarkerPole_001 (1162), CO_SignG_001
+                                  (988), CO_Table_Picnic (901), CO_CLRD_BinB
+                                  (711), CO_CLRD_FlowerholderA (710), CO_Bench_001
+                                  (585), etc. ALL collidable types only.
+                                  ★ Confirms: collobjs = collision-only.
+                                  14,397 unresolved (XML names with no rmb match).
+   [~] Colorado_00.hex            'HEXY' magic, version 101.
+                                  91×60 grid of u32 BE rmb-pool handles.
+                                  Cell size 100m, origin (-6700, -6495).
+                                  1,434 populated cells (most 0xFFFFFFFF empty).
+                                  Top tags in grid: OBJ_CLRD_SignB_NOLOD_001 (15),
+                                  S_MetalSign (11), S_MetalPole_R/L (11/11),
+                                  Plains_Area5_PATCH_*, MT_AREA06_TERRAIN_*.
+                                  Coverage limited to southwest Colorado only
+                                  (does NOT span Z>504 area). Far-LOD impostor
+                                  index — NOT the missing placement store.
+   [✗] Colorado_00.pvs            visibility lists + local-space bboxes.
+                                  No world model anchors (closed earlier).
+   [✗] Colorado_track_00.col      collision pool DIRECTORY ONLY. Pool itself is
+                                  built at runtime, not on disk. 5th u32 in each
+                                  record uniformly zero.
+   [✗] Colorado_track_00.crowd    12-byte stub `(2,0,0)`.
+   [✗] FilenameMap_00.dat         43,546 u32 BE offsets → null-terminated
+                                  filenames. Strings only (filenames). Zero hits
+                                  for any landmark tag name.
+   [✗] GameObjs.xml               Barn finds, gas stations, race spawns — no
+                                  landmark placement data.
+   [✗] ParticleEmitters.xml       Emission points (NOT model anchors).
+   [✗] PostProcessingZones_Safe.xml  16 named visual regions (Dam, Redrock,
+                                     Maintown, etc.). Post-FX bounds, not pivots.
+   [—] PreRaceCams.xml            race cameras
+   [✗] PVSZLookup_00.dat          per-zone 16-bit hash bucket. Closed.
+   [—] SmashableEffects.xml       1.3 KB FX trigger config.
+   [—] TimeOfDay.xml              lighting / ToD curves
+   [—] TimeOfDayA.xml             ↑
+   [—] TimeOfDayB.xml             ↑
+   [—] TimeOfDayNeutral.xml       ↑
+   [✗] TrackRoute*.xml (~345)     race-event NamedTransform entries — race props
+                                  ONLY (anim_couple_*, end_race_cannon_*,
+                                  mission_photo_*). Not landmark sources.
+   [—] TrackSegCams.xml           segment cameras
+
+# Per-chunk PGEO body breakdown (v42k7 — the bulk world data)
+# Each v42k7 chunk has:
+#   [0x00..0x34]  OEGP header  — version, kind, scale, world bbox, name
+#   [0x34..0x60]  body header  — Table B count, Table A count, total_size,
+#                                vbuf_size, section_count
+#   [0x60..0x88]  name field   — Models_Ungrouped_NNNN string (40B fixed slot)
+#   [0x88..]      section records — section_count × 64 bytes:
+#                    +0x00..0x18   6 BE floats (local bbox)
+#                    +0x1c..0x34   up to 3 (count, ptr) pairs → slot list
+#                                  (1-3 rmb pool handles per section)
+#                    +0x34..0x40   '(padding)' — actually 8 bytes; sometimes
+#                                  contains additional handles, sometimes
+#                                  coordinate-shaped floats. Heterogeneous.
+#                                  ~3,576 sections have nonzero data here.
+#   [after sections]  section_handles array (u32 BE handles)
+#                     Table A     (8B records of (handle, pad))
+#                     Table B header (16B) + 0xFFFFFFFF
+#                     Table B records (88B each + 0xFFFFFFFF separator)
+#                       ★ +0x54 BE u32 = 'slot mask' (interpretation unsolved;
+#                                                     varies between byte mask
+#                                                     for some sections and
+#                                                     float-shaped values for
+#                                                     others)
+#                       cull_box[0] f32 ≥ 80 = real instance, < 80 = streaming
+#   [position table]  per-section instance_count × 96 B transforms:
+#                     pos(12) + w=1.0(4) + section_constant(16) +
+#                     up(12) + 4-byte pad + 3 rotation rows of (12+4-pad) each
+#                     ★ all 16 'pad' bytes confirmed near-zero — no per-instance
+#                       slot picker hides there.
+#   [separator]       32 × separator_mult bytes between sections — actually
+#                     contains LOD distance thresholds (e.g. 300, 2500, 220, 10).
+#   [trailing VBUF]   79 × 40-byte records, anchor 0xe3 0xd0 at offset 32 of
+#                     each. Currently treated as preview-vertex point cloud.
+#                     ★ STRONGEST REMAINING CANDIDATE for the missing 5th
+#                       placement store (golf cart, haybale, grandstand,
+#                       BarrierBrand). Each chunk has one. Per-record fields
+#                       beyond packed position not yet decoded.
+
+# Open frontier (in priority order):
+[?] v42k7 chunk VBUF — fully decode the 40-byte record layout. Best candidate
+    for finding where golf carts / haybales / grandstands actually place.
+[?] v42k7 +0x54 'slot mask' — true semantics still unknown; we have 3 rules
+    that each fit some sections (RENDER mask, highest-bit, slot-0-only) but
+    none generalize.
+[?] landmark_anim PGEO body decoder — 33 chunks, currently treated as Maya
+    rig data. Worth one more pass with focus on world-coord triples in body.
+[?] crowd / vegetation / grass PGEO bodies — three large chunk classes,
+    bodies undecoded. Unlikely placement source for buildings but possible
+    for haybales (vegetation) and props (crowd).
+[?] PVSZoneSpeeds.dat — never investigated.
+
+# What we now confidently understand:
+# - rmb_world (6842 placements at policy=all) is correct for landmarks
+# - collobjs is collision-only (signs, fences, posts, picnic tables)
+# - animatedobjects covers race events + lights + cablecars (not static landmarks)
+# - HEXY is a far-LOD impostor index, not per-prop placement
+# - The missing 5th store, if it exists, is most likely embedded in the v42k7
+#   chunk VBUF — not in any per-Ribbon file.

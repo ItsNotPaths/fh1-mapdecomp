@@ -1,0 +1,76 @@
+=== fh1 RTTI recovery ===
+--- analyzer options ---
+  ASCII Strings.Create Strings Containing References = true
+  Call Convention ID.Analysis Decompiler Timeout (sec) = 60
+  Create Address Tables.Allow Offcut References = false
+  Data Reference = true
+  Data Reference.Address Table Alignment = 1
+  Data Reference.Address Table Minimum Size = 4
+  Data Reference.Align End of Strings = false
+  Data Reference.Ascii String References = true
+  Data Reference.Create Address Tables = true
+  Data Reference.Minimum String Length = 5
+  Data Reference.References to Pointers = true
+  Data Reference.Relocation Table Guide = true
+  Data Reference.Respect Execute Flag = true
+  Data Reference.Subroutine References = true
+  Data Reference.Switch Table References = false
+  Data Reference.Unicode String References = true
+  Decompiler Parameter ID = false
+  Decompiler Parameter ID.Analysis Clear Level = ANALYSIS
+  Decompiler Parameter ID.Analysis Decompiler Timeout (sec) = 60
+  Decompiler Parameter ID.Commit Data Types = true
+  Decompiler Parameter ID.Commit Void Return Values = false
+  Decompiler Parameter ID.Prototype Evaluation = __stdcall
+  Decompiler Switch Analysis = true
+  Decompiler Switch Analysis.Analysis Decompiler Timeout (sec) = 60
+  Demangler Microsoft = true
+  Demangler Microsoft.Apply Function Calling Conventions = true
+  Demangler Microsoft.Apply Function Signatures = true
+  Demangler Microsoft.C-Style Symbol Interpretation = FUNCTION_IF_EXISTS
+  Demangler Microsoft.Demangle Only Known Mangled Symbols = false
+  External Entry References = true
+  PowerPC Constant Reference Analyzer = true
+  PowerPC Constant Reference Analyzer.Create Data from pointer = false
+  PowerPC Constant Reference Analyzer.Function parameter/return Pointer analysis = true
+  PowerPC Constant Reference Analyzer.Mark dual instruction references = false
+  PowerPC Constant Reference Analyzer.Max Threads = 2
+  PowerPC Constant Reference Analyzer.Min absolute reference = 4
+  PowerPC Constant Reference Analyzer.Propagate r2 register value = false
+  PowerPC Constant Reference Analyzer.Propagate r30 register value = false
+  PowerPC Constant Reference Analyzer.Require pointer param data type = false
+  PowerPC Constant Reference Analyzer.Restrict Address to same 256M page = false
+  PowerPC Constant Reference Analyzer.Speculative reference max = 256
+  PowerPC Constant Reference Analyzer.Speculative reference min = 1024
+  PowerPC Constant Reference Analyzer.Stored Value Pointer analysis = true
+  PowerPC Constant Reference Analyzer.Switch Table Recovery = true
+  PowerPC Constant Reference Analyzer.Trust values read from writable memory = true
+  Reference = true
+  Reference.Address Table Alignment = 1
+  Reference.Address Table Minimum Size = 4
+  Reference.Align End of Strings = false
+  Reference.Ascii String References = true
+  Reference.Create Address Tables = true
+  Reference.Minimum String Length = 5
+  Reference.References to Pointers = true
+  Reference.Relocation Table Guide = true
+  Reference.Respect Execute Flag = true
+  Reference.Subroutine References = true
+  Reference.Switch Table References = false
+  Reference.Unicode String References = true
+  Scalar Operand References = false
+  Scalar Operand References.Relocation Table Guide = true
+  Subroutine References = true
+  Subroutine References.Create Thunks Early = true
+  Windows x86 PE RTTI Analyzer = true
+  WindowsResourceReference = true
+  WindowsResourceReference.Create Analysis Bookmarks = true
+
+--- enabling/running analyzers ---
+  enabled: Windows x86 PE RTTI Analyzer
+  enabled: Windows x86 PE Exception Handling
+  enabled: MSVC RTTI Analyzer
+  enabled: Decompiler Switch Analysis
+  enabled: Reference
+  enabled: Stack
+

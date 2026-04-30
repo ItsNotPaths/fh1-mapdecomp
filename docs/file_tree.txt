@@ -1,0 +1,146 @@
+# FH1 xex /media file tree — exploration status
+# Compiled 2026-04-28
+#
+# Status legend:
+#   [✓] decoded / mapped to extractor
+#   [~] partially decoded / sampled
+#   [✗] confirmed not relevant to placement / closed by investigation
+#   [?] not yet investigated
+#   [—] obviously not relevant (vehicles, UI, audio, livery)
+#
+# Anchor: /run/media/paths/SSS-Games/fh1-xex/4D5309C9/00007000/2DC7007B/media/
+
+[—] audio/                       audio
+[—] brakes/                      vehicle physics
+[—] camera.zip (13)              xml/ini camera config — 13 entries
+[—] carlights/                   vehicle lights
+[—] cars/                        car models / car-side data
+[—] ControllerFFB.ini            controller force-feedback
+[—] ControllerRumble.xml         controller rumble
+[✗] db/                          gamedb.slt + CarPartsList.xml — see below
+    [✗] CarPartsList.xml         car upgrade definitions
+    [✗] gamedb.slt               2.9 MB SQLite, 221 tables. All geo-shaped tables
+                                 (StartGridPositions, FlyingStartPositions,
+                                 GraffitiPoints, TrackPittingZones, SplitPoints)
+                                 are TRACK-RELATIVE — no world-static placements.
+                                 Career/car/race data only. No placement source.
+[—] DemoConfigs.xml              demo gameplay
+[—] dynamicpost.zip (30)         dds + xml; post-processing FX
+[—] effects.zip (333)            261 xml + 72 xds; particle/shader effects defs
+[—] FilesToCache.xml             cache manifest
+[—] gamemodes.zip (292)          xml + 1 py; gameplay mode configs
+[—] gametunablesettings.zip (37) xml/ini tuning
+[—] Livery.zip (1372)            .carbin paint files
+[—] navigation/                  SatNavCommandsStateGroup.xml — voice nav
+[—] physics.zip (7)              xml/ini; vehicle physics
+[—] profileschema/               player profile schema
+[—] realtimesky.zip (28)         dds + xml + xds + 1 bin; sky rendering
+[—] renderscenarios.zip (35)     xml; render presets
+[—] shaders/                     shader compilations
+[—] Spectators.zip (119)         bin/skinbin/xds; spectator NPCs
+[—] speech/                      voice lines
+[—] stringtables/                localized strings
+[—] ThumbnailCamSettings.xml     UI thumbnails
+[—] tracks/                      ★ ALL WORLD DATA HERE
+    tracks/colorado/             ↓
+        [✓] airborne_challenges.xml    Race-event timing config (refs ANIMs by name).
+                                       Not a placement source.
+        [✓] bin.zip                    ★★ MAIN WORLD DATA — 218,571 entries:
+                                       115,200 bin (rmb pool), 42,657 bix (textures),
+                                       41,587 pgeo (chunks), 16,934 fiz (foliage),
+                                       4,768 sh, 4,675 soundscape, 3,502 pvsz,
+                                       429 bundle, 173 fxobj, 66 fev, 66 fsb.
+        [✗] co_cone.bin                Closed; not a placement source.
+        [—] colorado_ambience.xml      audio
+        [✗] colorado.nav               nav mesh (closed earlier)
+        [✗] colorado.owr               12-byte sentinel
+        [✗] colorado.oww               32-byte open-world-water header
+        [—] colorado_reverb.xml        audio
+        [—] colorado_soundbank_lookup.xml  audio
+        [—] ColorGradingLookup.dds     post-process LUT
+        [—] ColorGradingLookup_Night.dds  post-process LUT
+        [✗] PhysicsDefinitions.bin     physics types (closed earlier)
+        [?] PVSZoneSpeeds.dat          NOT INVESTIGATED — speed-zone definitions
+        [✓] SmashableObjectTypes.xml   174 B — 4 type names only (Fence/Flyer/
+                                       Mailbox/RaceActivation). Not a placement.
+        [—] smoke.dds                  texture
+        [—] staticcarcubemap.xpr       cubemap
+        [—] TrackSettings.xml          track config
+        tracks/colorado/Ribbon_00/   ↓
+            [✓] CollObjs.xml             21,877 entries, only 48 resolve to rmb
+                                         pool. ALL collidable types (signs/fences/
+                                         marker poles/picnic tables/benches).
+                                         Confirmed: collobjs = collision items only.
+            [~] Colorado_00.hex          'HEXY' magic. 91×60 grid of u32 BE rmb
+                                         handles, 100m cell, origin (-6700,-6495).
+                                         1434 populated cells. Far-LOD impostor
+                                         index — NOT the missing placement store.
+                                         Doesn't span Z>504 area.
+            [✗] Colorado_00.pvs          visibility lists (closed)
+            [✗] Colorado_track_00.col    collision pool index (closed)
+            [✗] Colorado_track_00.crowd  12-byte stub
+            [✓] FilenameMap_00.dat       43,546 file-name strings (no placements)
+            [✗] GameObjs.xml             Barn finds, gas stations (no landmark hero)
+            [✗] ParticleEmitters.xml     emission points (not anchors)
+            [✗] PostProcessingZones_Safe.xml  16 named regions (post-FX)
+            [—] PreRaceCams.xml          race cameras
+            [✗] PVSZLookup_00.dat        zone hash bucket (closed)
+            [—] SmashableEffects.xml     1.3 KB FX config
+            [—] TimeOfDay*.xml           lighting
+            [✗] TrackRoute*.xml (~345 files)  race-event NamedTransform; race
+                                              props only (anim_couple_*, etc.)
+            [—] TrackSegCams.xml         segment cameras
+[—] ui/                          UI widgets
+[—] UICarTargetCameraPresets.xml UI camera
+[—] UI.zip (694)                 bgf/bsg/fbf/jpg/xml; UI assets
+[—] wheels/                      wheel models
+[—] zipmanifest.xml              zip manifest
+
+# Top-level zips with potential world content:
+[✗] aiopenworld.zip (46 owt)     OWTM AI traffic-route waypoint splines
+                                 (road waypoints only — no asset references)
+[~] animatedobjects.zip (651)    290 ANIM_*.pgeo + 361 .xds.
+                                 24/290 ANIMs have world bbox — all race events
+                                 (Showcase_Event_*, P51_Mustang, Helicopter,
+                                 Biplane, PlaneBanner) + autoshow lights +
+                                 ski-lift cablecars (which DO place gondola at
+                                 ~(605, 477)).
+                                 Wind turbines + windmills + autoshow tents EXIST
+                                 here as ANIM_WindTurbine_001.pgeo,
+                                 ANIM_FARM_Windmill[Metal|Wood].pgeo,
+                                 ANIM_Autoshow_Lights*.pgeo — but their world
+                                 bboxes are near-origin (asset-local), so
+                                 placement transforms must come from elsewhere.
+                                 Not a placement source for static landmarks.
+
+# Investigation map at a glance:
+# In-progress / open frontier:
+[?] Each v42k7 chunk's own VBUF (79 records × 40 B) — currently treated as
+    decode-preview per-vertex data. Strongest candidate for the missing 5th
+    placement store (golf carts, haybales, grandstands, BarrierBrand fences).
+[?] landmark_anim PGEO chunks (33 chunks) — currently dismissed as Maya rig
+    metadata strings. Worth a deeper look for wind turbine placements.
+[?] crowd PGEO chunks (1,783) — undecoded body
+[?] vegetation PGEO chunks (278) — undecoded body
+[?] grass PGEO chunks (3,199) — undecoded body
+[?] PVSZoneSpeeds.dat — never investigated
+
+# What we DO understand (the 4 confirmed placement stores):
+# 1. rmb_world      — baked named placements (smelter, dam, observatory). 6,842
+#                     placements with policy=all. Authoritative for landmarks.
+# 2. v42k7_inst     — streaming chunk transforms (modular town, decals, cables).
+#                     Currently disabled — slot picker is wrong. Position table
+#                     is real world coords. Slot list looks like a streaming
+#                     dependency / batch template, not a per-instance picker.
+# 3. collobjs       — 21,877 XML entries, 48 resolved → fences, signs, picnic
+#                     tables, marker poles, benches — collision items only.
+# 4. animatedobjects — 24 ANIM_*.pgeo with world bbox: race events, autoshow
+#                     lights, cablecars/gondolas. Per-instance placement source
+#                     for animated/event content only.
+#
+# Missing (5th store — open question):
+# Library entries exist in rmb pool for: PLA_GC_GolfCart, PLA_FARM_Windmill*,
+# STFT_Reservoir_Haybale, GLOB_STFN_WindTurbine_02, GrandstandStraight,
+# OBJ_BarrierBrand, FP_AutoshowTent_001 — BUT no world-placement source we've
+# found yet. They have library/asset-local centroids in the pool and zero
+# v42k7 slot-list references.

@@ -1,0 +1,53 @@
+name
+X m
+Y m
+Z m
+
+smelter area: (allready a green smelter placed there, there are ~8 larger stacked up blue copies to the southwest)
+-1961
+2593
+35.3
+
+dam (base):
+6627.14
+-310
+82
+
+golf course (one end to other)
+-2284
+-2105
+8
+
+-1619
+-3167
+23
+
+bunker (old mining town, has a kind of mining building, on the way to the dam)
+4438
+1099
+170
+
+red rocks entrance (i think there is a festival outpost)
+-5663
+-5292
+350
+
+observatory
+-5403
+-5446
+351
+
+ampitheatre (iirc, might be off, the carpark nearby is a street racing hub thing)
+-5871
+-5589
+355
+
+city centre (literal center vertice of the town center fountain)
+-4088
+836
+-113
+
+warehouse side of town
+-4488
+1404
+-9

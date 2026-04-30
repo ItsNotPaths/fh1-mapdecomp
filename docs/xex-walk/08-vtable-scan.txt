@@ -1,0 +1,46 @@
+[+] default.bin (23.2 MB)
+[+] 6796 class TDs found
+[+] scanning .rdata: 891392 u32 words
+[+] 4667 candidate vtables
+
+=== identified vtables of interest ===
+
+  vt=0x82001e9c  N= 26  class=.?AUCObjectGoToSleepEvent@@
+      [0]  0x82de9eb8
+      [1]  0x82a0e238
+      [2]  0x82de9e18
+      [3]  0x82de9e40
+      [4]  0x82de9eb0
+      [5]  0x82611b80
+  vt=0x82022ea4  N=  3  class=.?AVCSkillsFreeRoamChallenge@FreeRoamChallenges@Network@@
+      [0]  0x829738d0
+      [1]  0x8291be90
+      [2]  0x8298c560
+  vt=0x82023904  N=  4  class=.?AV?$TRefCountedObjectThreadSafe@VCPresentationDeferred@@@@
+      [0]  0x825b1908
+      [1]  0x82bb0098
+      [2]  0x82939c18
+      [3]  0x82611b80
+  vt=0x82053e40  N=  3  class=.?AV?$TThreadSafeQueue@VCDriverChoices@Racing@AIOpenWorld@@@@
+      [0]  0x82de7c48
+      [1]  0x8274bae8
+      [2]  0x82d6add0
+  vt=0x8222ae1c  N= 52  class=.?AUIDynamicRouteBuilder@AIOpenWorld@@
+      [0]  0x82c6c1e8
+      [1]  0x82a0e238
+      [2]  0x82510880
+      [3]  0x82ce4d58
+      [4]  0x82b755a8
+      [5]  0x82611b80
+  vt=0x8222c42c  N= 75  class=.?AVCAllocatedDynamicRoute@AIOpenWorld@@
+      [0]  0x82c7f498
+      [1]  0x82a0e238
+      [2]  0x825a8738
+      [3]  0x82c745a8
+      [4]  0x82b755a8
+      [5]  0x82611b80
+
+=== TOTAL vtables identified by class: 221 ===
+  unique classes seen: 205
+  unidentified: 4446
+

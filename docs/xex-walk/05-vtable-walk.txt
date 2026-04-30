@@ -1,0 +1,78 @@
+[+] default.bin (23.2 MB)
+
+========== CLoadingRequestFreeRoam (RTTI name va=0x832317cc) ==========
+  type_descriptor_va = 0x832317c4  (sec=.data)
+  pointers to TD: 0
+
+========== CFileChunkResource (RTTI name va=0x832c5448) ==========
+  type_descriptor_va = 0x832c5440  (sec=.data)
+  pointers to TD: 0
+
+========== CTrackRouteManager (RTTI name va=0x83244a1c) ==========
+  type_descriptor_va = 0x83244a14  (sec=.data)
+  pointers to TD: 0
+
+========== CFileChunkResourceType (RTTI name va=0x832c5074) ==========
+  type_descriptor_va = 0x832c506c  (sec=.data)
+  pointers to TD: 0
+
+========== CPreLoadResourceType (RTTI name va=0x83237640) ==========
+  type_descriptor_va = 0x83237638  (sec=.data)
+  pointers to TD: 0
+
+========== CStreamedDataResourceType (RTTI name va=0x83237664) ==========
+  type_descriptor_va = 0x8323765c  (sec=.data)
+  pointers to TD: 0
+
+========== CTrackModelResourceType (RTTI name va=0x8323768c) ==========
+  type_descriptor_va = 0x83237684  (sec=.data)
+  pointers to TD: 0
+
+========== CTrackPVSZoneResourceType (RTTI name va=0x832376b4) ==========
+  type_descriptor_va = 0x832376ac  (sec=.data)
+  pointers to TD: 0
+
+========== CHudStatusWorldLocationCollected (RTTI name va=0x832297c8) ==========
+  type_descriptor_va = 0x832297c0  (sec=.data)
+  pointers to TD: 0
+
+========== CFreeRoamChallengeState (RTTI name va=0x832314a0) ==========
+  type_descriptor_va = 0x83231498  (sec=.data)
+  pointers to TD: 0
+
+========== CSkillsFreeRoamChallengeState (RTTI name va=0x8323154c) ==========
+  type_descriptor_va = 0x83231544  (sec=.data)
+  pointers to TD: 0
+
+========== IPhysicsWorldObserver (RTTI name va=0x8322852c) ==========
+  type_descriptor_va = 0x83228524  (sec=.data)
+  pointers to TD: 0
+
+========== CRouteChunk_Navigation (RTTI name va=0x832b74d8) ==========
+  type_descriptor_va = 0x832b74d0  (sec=.data)
+  pointers to TD: 2
+    TD-ref at va=0x82361664  -> col_va_candidate=0x82361658
+    TD-ref at va=0x82361688  -> col_va_candidate=0x8236167c
+
+  --- COL candidate va=0x82361658 ---
+    col-ref at va=0x82241f18 (sec=.rdata)  -> vtable_start=0x82241f1c (sec=.rdata)
+      vtable[ 0] = 0x82dc5cb0 (sec=.text)  <- in .text
+      vtable[ 1] = 0x823616a4 (sec=.rdata)
+      vtable[ 2] = 0x82dc6ee8 (sec=.text)  <- in .text
+      vtable[ 3] = 0x823616f4 (sec=.rdata)
+      vtable[ 4] = 0x82dc6f38 (sec=.text)  <- in .text
+      vtable[ 5] = 0x82361744 (sec=.rdata)
+      vtable[ 6] = 0x82dc6f88 (sec=.text)  <- in .text
+      vtable[ 7] = 0x82361794 (sec=.rdata)
+      vtable[ 8] = 0x82dc6fd8 (sec=.text)  <- in .text
+      vtable[ 9] = 0x823617e4 (sec=.rdata)
+      vtable[10] = 0x82dc7028 (sec=.text)  <- in .text
+      vtable[11] = 0x82361834 (sec=.rdata)
+  --- COL candidate va=0x8236167c ---
+    col-ref at va=0x82361678 (sec=.rdata)  -> vtable_start=0x8236167c (sec=.rdata)
+      vtable[ 0] = 0x82361688 (sec=.rdata)
+      vtable[ 1] = 0x822df538 (sec=.rdata)
+
+========== CFileChunkResource (RTTI name va=0x832c5448) ==========
+  type_descriptor_va = 0x832c5440  (sec=.data)
+  pointers to TD: 0

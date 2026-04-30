@@ -41,6 +41,9 @@ def parse_args():
                     help="directory with rmb.bin TERR per-tile .npz + index.json")
     ap.add_argument("--v42k7-inst", default="",
                     help="directory with v42k7 instance per-blob .npz + index.json")
+    ap.add_argument("--v42k7-barriers", default="",
+                    help="barriers-only filtered v42k7_inst directory (lays "
+                         "alongside --v42k7-inst in its own collection)")
     ap.add_argument("--collobjs", default="",
                     help="directory with CollObjs.xml instance per-blob .npz + index.json")
     ap.add_argument("--rmb-world", default="",
@@ -630,6 +633,14 @@ def main():
                          src_prefix="v42k7_src",
                          inst_prefix="v42k7_inst",
                          blob_prefix="v42k7_blob")
+    if args.v42k7_barriers:
+        _import_inst_dir(Path(args.v42k7_barriers),
+                         label="v42k7_barriers",
+                         collection="fh1_v42k7_barriers",
+                         material_variant="collobjs",
+                         src_prefix="barriers_src",
+                         inst_prefix="barriers",
+                         blob_prefix="barriers_blob")
     if args.collobjs:
         _import_inst_dir(Path(args.collobjs),
                          label="collobjs",

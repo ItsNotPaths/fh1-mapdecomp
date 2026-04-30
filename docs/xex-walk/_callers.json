@@ -1,0 +1,37 @@
+{
+  "rmb_load_format_a": {
+    "anchor_va": 2183369955,
+    "n_lis": 2257,
+    "hits": []
+  },
+  "rmb_load_format_b": {
+    "anchor_va": 2183369954,
+    "n_lis": 2257,
+    "hits": []
+  },
+  "sect_count_assert_a": {
+    "anchor_va": 2181800672,
+    "n_lis": 348,
+    "hits": []
+  },
+  "sect_count_assert_b": {
+    "anchor_va": 2181800756,
+    "n_lis": 348,
+    "hits": []
+  },
+  "oegp_magic": {
+    "anchor_va": 2200714736,
+    "n_lis": 1117,
+    "hits": []
+  },
+  "collobjs_ref": {
+    "anchor_va": 2181112464,
+    "n_lis": 5952,
+    "hits": []
+  },
+  "anim_hardcoded": {
+    "anchor_va": 2181091892,
+    "n_lis": 5952,
+    "hits": []
+  }
+}

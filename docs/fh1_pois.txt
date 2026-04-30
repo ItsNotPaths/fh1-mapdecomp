@@ -1,0 +1,13 @@
+# fh1 colorado POIs (Blender world XY)
+# name<TAB>x<TAB>y
+autoshow tent	-824.920	-108.055
+dam	6693.059	-333.843
+eagle ridge	1430.033	-5349.127
+fountain	-4091.186	835.055
+golf carts	-2980.316	-1910.237
+golf course	-2755.466	-1795.141
+mainstage	-1481.681	-345.368
+obseratory	-5670.424	-4872.472
+ranch	-2586.781	-5243.028
+smelters (several)	-1741.076	2643.732
+theatre	-6230.224	-5442.051

@@ -1,0 +1,11 @@
+=== fh1 symbol enumeration ===
+
+--- vftable symbols (top 600) ---
+  vftable @ 820d7ef8  -> type_info
+(1 vftables)
+
+--- symbols matching keywords (chunk/freeroam/place/world/load/stream/anchor/rmb/resource) ---
+(0 total matches; printed first 1500)
+
+--- known C++ namespaces with class names ---
+(recursive walk disabled — too slow)

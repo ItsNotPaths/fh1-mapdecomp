@@ -1,0 +1,790 @@
+=== fh1 xex post-import recon ===
+program: default.bin
+language: PowerPC:BE:32:default
+base: 82000000
+
+--- RTTI class names (.?AV...@@) ---
+(0 RTTI names dumped)
+
+--- defined strings in .rdata with code xrefs (top 600 by ref count) ---
+  refs=39  va=82032118  'EMPTY_SCENE'
+  refs=37  va=82004c74  'map/set<T> too long'
+  refs=24  va=82040314  'SCENE_REMOVED'
+  refs=17  va=8203fc64  'H_MESSAGE_POPUP'
+  refs=15  va=82040300  '108_C_BUY_CARSELECT'
+  refs=14  va=8204e51c  'Tuning'
+  refs=14  va=82040660  'SHOW_SCREEN_INFO'
+  refs=14  va=8204064c  'HIDE_SCREEN_INFO'
+  refs=14  va=8200e7a8  'HelpButtons'
+  refs=13  va=832c1008  '.?AUCParams2ICarPresentationSetHeadlightOffset@CCarPresentationDeferred@@'
+  refs=13  va=820e801c  'Forza.WebServices.Storefront, Forza.WebServices'
+  refs=12  va=8200c32c  'InGame'
+  refs=11  va=822a7b04  'Assertion failed: %s (%s:%u)'
+  refs=11  va=8203fb94  'H_LOAD_SAVE'
+  refs=11  va=8203210c  'Storefront'
+  refs=10  va=820746f4  'Camera\\FileData\\Driver'
+  refs=10  va=82027758  'CarFlow'
+  refs=9  va=820e242c  'Forza.WebServices.User, Forza.WebServices'
+  refs=9  va=820401a8  'H_GENERIC'
+  refs=9  va=82009aa0  'DisplayName'
+  refs=9  va=82005360  'INTRO_DONE'
+  refs=8  va=820402ec  '039_I_SPINNER_LIST'
+  refs=8  va=82040068  '035_D_LOADING'
+  refs=7  va=8328c1c8  '.?AV?$TBaseTypeChain@VCWaitForMapWayPointChange@States@@VCGameStateBehaviour@2@@RTTI@@'
+  refs=7  va=822b0e08  'e:\\xenon\\main_xdkfeb12\\core\\private\\xdk\\xtl\\graphics\\xgraphics\\ucode\\compiler\\ir\\irinst.cpp'
+  refs=7  va=8227b3fc  '..\\src\\fmod_eventprojecti.cpp'
+  refs=7  va=82138b14  'Center'
+  refs=7  va=820db5f8  'Xls.WebServices.Clan, Xls.WebServices'
+  refs=7  va=82022058  '_Container'
+  refs=6  va=8213b274  'inputgain'
+  refs=6  va=8213b268  'overdrive'
+  refs=6  va=8213b258  'outputgain'
+  refs=6  va=82138b1c  'Bandwidth'
+  refs=6  va=82040294  '114_C_BUY_BUYCAR_COLOR'
+  refs=6  va=82040148  'NotImplemented'
+  refs=6  va=8203ff0c  '501_C_LIV_COLOR'
+  refs=6  va=8202846c  'HIDE_COMPLETE'
+  refs=6  va=8200c334  'ModelShort'
+  refs=6  va=82006790  'Activities'
+  refs=6  va=8200536c  'OUTRO_DONE'
+  refs=5  va=822db33c  'modelset'
+  refs=5  va=8213c250  'Game:\\Media\\Audio\\Radio\\'
+  refs=5  va=820f9920  'DownloadInfo'
+  refs=5  va=820eb200  'Forza.WebServices.Auction, Forza.WebServices'
+  refs=5  va=82094040  'IDS_ChangeCar'
+  refs=5  va=820659fc  'SHOW_ICON'
+  refs=5  va=82060e90  'SELECT Id FROM '
+  refs=5  va=82040280  'PRE_AND_POST_RACE'
+  refs=5  va=82040134  '122_F_TRK_LOCSELECT'
+  refs=5  va=8204011c  'WRISTBAND_LEADERBOARD'
+  refs=5  va=82040104  'LAP_TIME_LEADERBOARD'
+  refs=5  va=8203ff34  'LEADERBOARD_EVENT_SELECT'
+  refs=5  va=8203bd60  'return'
+  refs=5  va=8203650c  'TEXT_TITLE'
+  refs=5  va=82032100  'LiveStrings'
+  refs=5  va=82028e30  ' AND IsStock=1'
+  refs=5  va=8202845c  'SHOW_COMPLETE'
+  refs=5  va=820276a4  'ScreenTitles'
+  refs=5  va=8202465c  'disconnected'
+  refs=5  va=8201e4d0  'Direction'
+  refs=5  va=8201c0ec  ' WHERE Id='
+  refs=4  va=8324ba8c  '.?AVCEarningsControl@ForzaUI@@'
+  refs=4  va=822db330  'skeleton'
+  refs=4  va=8223e7b0  'carbon_fiber'
+  refs=4  va=8213acdc  'Active'
+  refs=4  va=8213ab3c  'OriginOrientation'
+  refs=4  va=8213ab2c  'OriginPosition'
+  refs=4  va=8213aafc  'SuspensionVolume'
+  refs=4  va=8213aae8  'SuperChargerVolume'
+  refs=4  va=8213aadc  'TurboVolume'
+  refs=4  va=8213a9d0  'RightRear'
+  refs=4  va=8213a9c4  'LeftRear'
+  refs=4  va=8213a9b8  'Pan3d'
+  refs=4  va=820e3f50  'Forza.WebServices.OnlineProfile, Forza.WebServices'
+  refs=4  va=820e2d10  'Forza.WebServices.SharedCar, Forza.WebServices'
+  refs=4  va=8209288c  'IDS_TakePhoto'
+  refs=4  va=82076b34  'SELECT * FROM '
+  refs=4  va=82072074  'EventName'
+  refs=4  va=82065a08  'HIDE_ICON'
+  refs=4  va=8204ac20  'MainMenu'
+  refs=4  va=82048518  'PLAY_OUTRO'
+  refs=4  va=82047694  'nextToRollup'
+  refs=4  va=820452f8  'SHRINK_PHOTO'
+  refs=4  va=82045040  'HIDE_LOADING'
+  refs=4  va=82040248  '123_F_TRK_TRACKSELECT'
+  refs=4  va=8203ff1c  '508_C_LIV_VINYL_SELECT'
+  refs=4  va=8203fdb0  '115_C_BUY_MFRSELECT'
+  refs=4  va=8203f9d0  '427_TIME_TRIAL_VS'
+  refs=4  va=8201a4a4  'Right'
+  refs=4  va=82009b58  'Description'
+  refs=4  va=82005b28  'game:\\media\\cars\\'
+  refs=4  va=82005540  'HIDDEN'
+  refs=3  va=8323dc88  '.?AV?$TBaseTypeChain@VCRequestMicroSave@States@@VCGameStateBehaviour@2@@RTTI@@'
+  refs=3  va=822aa3a0  'e:\\xenon\\main_xdkfeb12\\core\\private\\xdk\\xtl\\graphics\\xgraphics\\ucode\\ssm\\util\\linkedlist.cpp'
+  refs=3  va=8227e4d0  '..\\src\\fmod_metadata.cpp'
+  refs=3  va=8227bc54  '..\\src\\fmod_dsp_codecpool.cpp'
+  refs=3  va=8227b464  '..\\src\\fmod_eventuserproperty.cpp'
+  refs=3  va=8227a9d8  '..\\src\\fmod_eventsound.cpp'
+  refs=3  va=82279a60  'Invalid sBIT depth specified'
+  refs=3  va=8223e87c  'badge'
+  refs=3  va=8223e580  'inner_rim'
+  refs=3  va=8213c26c  'SoundbankInfo'
+  refs=3  va=8213b280  'effecttype'
+  refs=3  va=8213accc  'CenterFrequency'
+  refs=3  va=8213ab50  'innerAngle'
+  refs=3  va=8213aac8  'TransmissionVolume'
+  refs=3  va=8213aa14  'ElectricMotorVolume'
+  refs=3  va=82138b30  'Bypass'
+  refs=3  va=820e9460  'Forza.WebServices.Scoreboard, Forza.WebServices'
+  refs=3  va=820e5d88  'Forza.WebServices.Hopper, Forza.WebServices'
+  refs=3  va=820d07ac  'zlib error'
+  refs=3  va=820c6370  'Volume'
+  refs=3  va=820993d8  'IDS_Time'
+  refs=3  va=82098e84  'IDS_Pause'
+  refs=3  va=820979ec  'IDS_Save'
+  refs=3  va=82097900  'IDS_Restrictions'
+  refs=3  va=820940e0  'IDS_Laps'
+  refs=3  va=82092848  'IDS_Controller'
+  refs=3  va=82092544  'IDS_FastTravel'
+  refs=3  va=82092508  'IDS_Mulligan'
+  refs=3  va=82092410  'IDS_Restart'
+  refs=3  va=8209230c  'IDS_Map'
+  refs=3  va=82091e60  'IDS_Benchmark'
+  refs=3  va=82091a10  'IDS_Multiplayer'
+  refs=3  va=8207796c  ' AND Id='
+  refs=3  va=8206bd3c  'SHOW_WRISTBAND'
+  refs=3  va=82058980  'OUT_HIDDEN'
+  refs=3  va=820580e0  'SHOWTOTALTIME'
+  refs=3  va=820580d0  'HIDETOTALTIME'
+  refs=3  va=82057434  'SELECT ShortDisplayName FROM Environments WHERE id='
+  refs=3  va=820534a4  'SHOW_WARNING'
+  refs=3  va=8204850c  'PLAY_INTRO'
+  refs=3  va=8204767c  'nextToEventLeaderboard'
+  refs=3  va=820452e8  'ENLARGE_PHOTO'
+  refs=3  va=82045030  'SHOW_LOADING'
+  refs=3  va=82045024  'SHOW_CAR'
+  refs=3  va=82044664  'IDS_DLCCar'
+  refs=3  va=82043c54  'Scoreboard'
+  refs=3  va=820432f8  'COMPONENT_TRACK_LOGO_LIST'
+  refs=3  va=820414a0  'HIDE_STATUS_TEXT'
+  refs=3  va=8204148c  'SHOW_STATUS_TEXT'
+  refs=3  va=82040674  'COMPONENT_END_OF_RACE_COUNTDOWN'
+  refs=3  va=82040358  '6_C_INI_UNLOADING'
+  refs=3  va=82040324  '999_DEV_ATTRACT'
+  refs=3  va=82040270  'H_EVENT_SUMMARY'
+  refs=3  va=820401d0  '516_I_EFFECTSMODE'
+  refs=3  va=8203fee0  '507_C_LIV_POSITION'
+  refs=3  va=8203fe70  '17_DYNAMIC_LOADING_FREEPLAY'
+  refs=3  va=8203fa88  'H_POST_MISSION'
+  refs=3  va=8203c964  'TEXT_EARNINGS'
+  refs=3  va=8203bd68  'okRivals'
+  refs=3  va=82036978  'AuctionHouse'
+  refs=3  va=8202ce90  'Lobby'
+  refs=3  va=82028f08  ' WHERE Ordinal='
+  refs=3  va=82025870  'IsNewFile'
+  refs=3  va=82024460  'animation'
+  refs=3  va=820220fc  'Count'
+  refs=3  va=8201e400  'Pitch'
+  refs=3  va=8201cd2c  'Livery'
+  refs=3  va=8201caa8  'MakeId'
+  refs=3  va=8201bba0  'Game:\\Media\\Cars\\shared\\ShaderSettings\\Normal.xml;Game:\\Media\\Cars\\shared\\ShaderSettings\\Metallic.xml'
+  refs=3  va=8201b998  'Game:\\Media\\Cars\\shared\\ShaderSettings\\Normal.xml'
+  refs=3  va=8201a2b8  '_slod'
+  refs=3  va=82019d7c  'Thumbnail'
+  refs=3  va=82012310  'DrivetypeID'
+  refs=3  va=82011c0c  'Transmission'
+  refs=3  va=8200a63c  'EventId'
+  refs=3  va=8200a2c0  'DevBVT_PerfCar'
+  refs=3  va=82009dbc  'CareerTypeId'
+  refs=3  va=8200909c  'MakeID'
+  refs=3  va=82005538  'SHOWN'
+  refs=3  va=82005378  'INTRO'
+  refs=2  va=832bc34c  '.?AVCDynamicRenderParticleRateScaleControl@@'
+  refs=2  va=8324bb08  '.?AVCHeadTrackingSetup@ForzaUI@@'
+  refs=2  va=822d7938  '%s\\%d.%s.%s'
+  refs=2  va=822b0eb0  '( aOperand[i] == aRegs[i]->GetIndex() ) || ( aOperand[i] == aRegs[i]->GetUsage() )'
+  refs=2  va=822b0e84  'aOperandType[i] == aRegs[i]->GetType()'
+  refs=2  va=822b0e78  'aRegs[i]'
+  refs=2  va=822ad498  '%s (%d) : %d\n'
+  refs=2  va=8227bf48  '..\\src\\fmod_speakerlevels_pool.cpp'
+  refs=2  va=8227bc7c  '..\\src\\fmod_output_emulated.cpp'
+  refs=2  va=8227b900  'FMOD geometry thread'
+  refs=2  va=822792e0  'MNG features are not allowed in a PNG datastream'
+  refs=2  va=82241ff8  'FaceIndex: %d'
+  refs=2  va=82240328  'hood*'
+  refs=2  va=82240320  'mirror*'
+  refs=2  va=82240318  'cage*'
+  refs=2  va=8223fb70  '_SLOD'
+  refs=2  va=8223f8c4  'detail_glass'
+  refs=2  va=8223f8bc  'light'
+  refs=2  va=8223f5e0  'ZOnly'
+  refs=2  va=8223f238  'wheel_black'
+  refs=2  va=8223e3f8  'numberplate'
+  refs=2  va=8223e240  'undercarriage'
+  refs=2  va=8223dd8c  'CDriverHands::Preload'
+  refs=2  va=82239d34  'game:\\Media\\tracks\\'
+  refs=2  va=8222faa4  'CCarLivery::LoadLiveryElements'
+  refs=2  va=822294bc  'bfont'
+  refs=2  va=822294b4  'vfont'
+  refs=2  va=822293c4  'VE:%d'
+  refs=2  va=82141928  'interior'
+  refs=2  va=82141908  'steering_wheel'
+  refs=2  va=821418c8  'glassF'
+  refs=2  va=82140fe4  'Id FROM List_Upgrade'
+  refs=2  va=8213fd58  'MomentInertia'
+  refs=2  va=8213b82c  'VW_BORAVR6_03'
+  refs=2  va=8213b3b0  'FocusPEQ'
+  refs=2  va=8213b3a4  'Distortion'
+  refs=2  va=8213b390  'VolumeCompensate'
+  refs=2  va=8213b384  'Compressor'
+  refs=2  va=8213b354  'ShiftVolumeScalar'
+  refs=2  va=8213b2ec  'HeavyBraking'
+  refs=2  va=8213b2b0  'TrashDSP'
+  refs=2  va=8213b230  'ExhaustReflection'
+  refs=2  va=8213b20c  'DSPScalar'
+  refs=2  va=8213ad91  'A.fsb'
+  refs=2  va=8213ad80  'EngineSettings'
+  refs=2  va=8213ab68  'outerVolume'
+  refs=2  va=8213ab5c  'outerAngle'
+  refs=2  va=8213ab10  'CarWindVolume'
+  refs=2  va=8213aabc  'TireVolume'
+  refs=2  va=8213aaac  'OtherVolumes'
+  refs=2  va=8213aa98  'SurroundPanExhaustR'
+  refs=2  va=8213aa84  'SurroundPanExhaustL'
+  refs=2  va=8213aa68  'SurroundPanEngineAmbient'
+  refs=2  va=8213aa5c  'ExhaustR'
+  refs=2  va=8213aa50  'ExhaustL'
+  refs=2  va=8213aa40  'EngineAmbient'
+  refs=2  va=8213aa28  'SurroundPanEngineIntake'
+  refs=2  va=8213aa04  'AmbientVolume'
+  refs=2  va=8213a9f4  'EngineIntake'
+  refs=2  va=8213a9dc  'EmissionGroupVolumes'
+  refs=2  va=82137b90  '/TrackAmbient/Track3D'
+  refs=2  va=82137a3c  'soundbank'
+  refs=2  va=821379f4  'rotateX'
+  refs=2  va=8213799c  'SharedAudioDynamic'
+  refs=2  va=82137980  'Game:\\Media\\Audio\\Tracks\\'
+  refs=2  va=82137910  'Soundbank'
+  refs=2  va=821351ac  'nemesis'
+  refs=2  va=82132a40  'model'
+  refs=2  va=820fd550  '%f,%d,%f,%f,%f,%d,%f,%f'
+  refs=2  va=820ec19c  'Forza.WebServices.DLCMetadata, Forza.WebServices'
+  refs=2  va=820e81fc  'ReportContent'
+  refs=2  va=820de714  'OnComplete'
+  refs=2  va=820da964  'Xls.WebServices.User, Xls.WebServices'
+  refs=2  va=820d0818  'Call to NULL write function'
+  refs=2  va=820a375c  'IDS_EventRestrictions'
+  refs=2  va=820a354c  'IDS_Waiting_Title'
+  refs=2  va=820a244c  'IDS_Overview_Title'
+  refs=2  va=820a2438  'IDS_Overview_Desc'
+  refs=2  va=820a01a4  'IDS_Balance'
+  refs=2  va=820a0198  'IDS_Brake'
+  refs=2  va=8209feb8  'IDS_FirstTimeMessage'
+  refs=2  va=8209f598  'IDS_General'
+  refs=2  va=8209f288  'IDS_Drift'
+  refs=2  va=8209f18c  'IDS_Price'
+  refs=2  va=8209e6c8  'IDS_Gear'
+  refs=2  va=8209e5e8  'IDS_VisitStorefront'
+  refs=2  va=8209e248  'IDS_Gamertag'
+  refs=2  va=8209ad40  'IDS_Heat'
+  refs=2  va=8209a284  'IDS_Telemetry'
+  refs=2  va=82099d2c  'IDS_Damage'
+  refs=2  va=82099c54  'IDS_ViewReplay'
+  refs=2  va=820997b0  'IDS_Tuning'
+  refs=2  va=820995b4  'IDS_Lap'
+  refs=2  va=820995a8  'IDS_Race'
+  refs=2  va=82099220  'IDS_Sell'
+  refs=2  va=82098f14  'IDS_Statistics'
+  refs=2  va=82097dfc  'IDS_Vote'
+  refs=2  va=82097d18  'IDS_Buy'
+  refs=2  va=82097a68  'IDS_Paste'
+  refs=2  va=82097a5c  'IDS_Copy'
+  refs=2  va=82097a38  'IDS_Upload'
+  refs=2  va=82097a04  'IDS_Exit'
+  refs=2  va=8209796c  'IDS_ClubInfo'
+  refs=2  va=820978a0  'IDS_Remove'
+  refs=2  va=82097864  'IDS_Install'
+  refs=2  va=82097804  'IDS_Filter'
+  refs=2  va=820977c0  'IDS_Search'
+  refs=2  va=82097764  'IDS_Assists'
+  refs=2  va=82097754  'IDS_Scoreboards'
+  refs=2  va=8209546c  'IDS_AuctionHouse'
+  refs=2  va=82094df8  'IDS_Laps_Infinite'
+  refs=2  va=82094c04  'IDS_Load_Failed_Title'
+  refs=2  va=820941f4  'IDS_Marketplace'
+  refs=2  va=82094050  'IDS_QuickUpgrade'
+  refs=2  va=82094034  'IDS_GoRace'
+  refs=2  va=82093f0c  'IDS_Not_Optimized_Title'
+  refs=2  va=82093c4c  'IDS_Available'
+  refs=2  va=82092f14  'IDS_Get_In_Car'
+  refs=2  va=82092d94  'IDS_BuyCarTokens_Item'
+  refs=2  va=820928f4  'IDS_RewardTitle'
+  refs=2  va=820928e0  'IDS_DetailsTitle'
+  refs=2  va=820928bc  'IDS_ScreenTitle'
+  refs=2  va=8209287c  'IDS_MyProfile'
+  refs=2  va=82092870  'IDS_Video'
+  refs=2  va=8209283c  'IDS_Options'
+  refs=2  va=820927ac  'IDS_Photo'
+  refs=2  va=82092518  'IDS_Quit'
+  refs=2  va=820924d4  'IDS_HUD'
+  refs=2  va=820924c8  'IDS_Audio'
+  refs=2  va=820924b4  'IDS_HeadTracking'
+  refs=2  va=820923ec  'IDS_Resume'
+  refs=2  va=8209211c  'IDS_PhotoShootFail'
+  refs=2  va=8209210c  'IDS_PRStuntFail'
+  refs=2  va=82091fbc  'IDS_ShowLeaderboard'
+  refs=2  va=82091f38  'IDS_Take_Photo'
+  refs=2  va=82091e70  'IDS_Test_Drive'
+  refs=2  va=82091e54  'IDS_Paint'
+  refs=2  va=82091e2c  'IDS_Upgrade'
+  refs=2  va=82091b0c  'IDS_ReverseGear'
+  refs=2  va=82091af8  'IDS_Clutch_Engaged'
+  refs=2  va=82091ae8  'IDS_Clutch_Open'
+  refs=2  va=820919b8  'IDS_GhostsDashboardItemName'
+  refs=2  va=8208eb10  'shortcut'
+  refs=2  va=8208c5d4  'trigger'
+  refs=2  va=8207aabc  'group'
+  refs=2  va=82077978  'SELECT Id FROM Data_Car AS Garage WHERE '
+  refs=2  va=82073524  'EventTicket'
+  refs=2  va=8207351c  'HubName'
+  refs=2  va=8207350c  'ColorEventId'
+  refs=2  va=82073504  'Color1'
+  refs=2  va=820734fc  'Color2'
+  refs=2  va=820734f4  'Color3'
+  refs=2  va=820734ec  'Color4'
+  refs=2  va=820734e4  'Color5'
+  refs=2  va=820734dc  'Color6'
+  refs=2  va=820734d4  'Color7'
+  refs=2  va=8206bd4c  'HIDE_WRISTBAND'
+  refs=2  va=8206bc68  'DISABLE_STRIPE'
+  refs=2  va=8206bc58  'ENABLE_STRIPE'
+  refs=2  va=8206bc40  'DISABLE_SECONDARY_COLOR'
+  refs=2  va=8206bc28  'ENABLE_SECONDARY_COLOR'
+  refs=2  va=8206b78c  'HIDE_OFFER'
+  refs=2  va=8206b600  'HIDE_TIME'
+  refs=2  va=8206b5f4  'SHOW_TIME'
+  refs=2  va=8206b4c4  'HIDE_TARGET'
+  refs=2  va=8206b4b8  'SHOW_TARGET'
+  refs=2  va=82069b38  'road_type'
+  refs=2  va=82068e40  'ARROW_DESTINATION'
+  refs=2  va=82068e2c  'ARROW_UTURN_LEFT'
+  refs=2  va=82068e18  'ARROW_SHARP_LEFT'
+  refs=2  va=82068e08  'ARROW_TURN_LEFT'
+  refs=2  va=82068df8  'ARROW_BEAR_LEFT'
+  refs=2  va=82068de4  'ARROW_UTURN_RIGHT'
+  refs=2  va=82068dd0  'ARROW_SHARP_RIGHT'
+  refs=2  va=82068dbc  'ARROW_TURN_RIGHT'
+  refs=2  va=82068da8  'ARROW_BEAR_RIGHT'
+  refs=2  va=82068d9c  'ARROW_AHEAD'
+  refs=2  va=82066aac  'RESET'
+  refs=2  va=82065bfc  'ANIMATE'
+  refs=2  va=82065ab4  'NEGATIVE'
+  refs=2  va=82065aa8  'POSITIVE'
+  refs=2  va=820659f0  'HIDE_TUNE'
+  refs=2  va=820659e4  'SHOW_TUNE'
+  refs=2  va=820621f8  'BOOLEAN_MATCH_ASPECT_RATIO'
+  refs=2  va=820621e0  'BOOLEAN_TRUNCATE_TEXT'
+  refs=2  va=820621c4  'BOOLEAN_KEEP_INITIAL_TEXT'
+  refs=2  va=82061cd8  'UNOWNED'
+  refs=2  va=82061cc4  'OWNED'
+  refs=2  va=82061adc  'IDS_Category_Time_Desc'
+  refs=2  va=820610e8  'SELECT Level, IsStock, Price FROM '
+  refs=2  va=820610a4  ' WHERE Id = '
+  refs=2  va=82061064  'SELECT Price, PartManufacturerID FROM List_Wheels WHERE Id = '
+  refs=2  va=82060e18  'LogoPath'
+  refs=2  va=8205dbe4  'UpgradeCar'
+  refs=2  va=8205c30c  'HIDE_KINECT_WAVE'
+  refs=2  va=8205c2f8  'SHOW_KINECT_WAVE'
+  refs=2  va=8205b024  'IDS_Storefront_Title'
+  refs=2  va=8205b010  'IDS_General_Title'
+  refs=2  va=8205a3d4  'wristbandSelect'
+  refs=2  va=8205a3c4  'streetHubSelect'
+  refs=2  va=8205a3b8  'eventSelect'
+  refs=2  va=82058c30  'HIDE_INFO'
+  refs=2  va=82058c20  'HIDE_CAR_CLASS'
+  refs=2  va=82058c10  'SHOW_CAR_CLASS'
+  refs=2  va=82057ff0  'HIDE_RESULT'
+  refs=2  va=82057fe4  'SHOW_RESULT'
+  refs=2  va=82057fb8  'IDS_Cancel'
+  refs=2  va=82057c3c  'nextScreen'
+  refs=2  va=82055a48  'IDS_UserActionsGamerCard'
+  refs=2  va=820554f8  'SaveTable_MetaData'
+  refs=2  va=820535e0  'SETUP_MODE'
+  refs=2  va=82053558  'HIDETARGET'
+  refs=2  va=820534b4  'HIDE_WARNING'
+  refs=2  va=82052368  'doorposition'
+  refs=2  va=82051a1c  'quit_to_new_party'
+  refs=2  va=8204fde0  'SHOW_HEADER'
+  refs=2  va=8204f298  'IDS_LobbyStartRace'
+  refs=2  va=8204f07c  'SHOW_CONTENT'
+  refs=2  va=8204865c  'FLASH'
+  refs=2  va=820484d0  'SPLITSCREEN_PLAYER1'
+  refs=2  va=82047ea4  'HIDE_HEADTRACKING'
+  refs=2  va=82047e90  'SHOW_HEADTRACKING'
+  refs=2  va=82047cc8  'TEXT_MANUFACTURER_NAME'
+  refs=2  va=820453f4  'IDS_OptionHeadTracking'
+  refs=2  va=8204537c  'SHOW_SAVING_SLIDE'
+  refs=2  va=82045318  'SHOW_RESULTS'
+  refs=2  va=820452b0  'IDS_Bounty_Bonus'
+  refs=2  va=82045158  'IDS_FindClan'
+  refs=2  va=82044c48  'BaseCarValue'
+  refs=2  va=82042c28  'LIST_SPEED_UNIT'
+  refs=2  va=82042c18  'LONG_MAX_TACH'
+  refs=2  va=820422d0  'TEXT_MULTIPLAYER_TIMER'
+  refs=2  va=820422c4  'TEXT_RANK'
+  refs=2  va=82040ad4  'HIDE_CLASS_BADGE'
+  refs=2  va=82040ac0  'SHOW_CLASS_BADGE'
+  refs=2  va=82040880  'HIDE_HOME_BUTTON'
+  refs=2  va=8204086c  'SHOW_HOME_BUTTON'
+  refs=2  va=820407bc  'FADE_IN'
+  refs=2  va=82040724  'HIDE_TABS'
+  refs=2  va=820406fc  'BUYOUT_GREEN'
+  refs=2  va=820406f0  'BUYOUT_RED'
+  refs=2  va=820406e4  'BID_GREEN'
+  refs=2  va=820406d0  'FADE_OUT'
+  refs=2  va=82040694  'TEXT_DESCRIPTION_TITLE'
+  refs=2  va=82040438  'IDS_Shifting'
+  refs=2  va=820403fc  'IDS_Steering'
+  refs=2  va=820403f0  'IDS_Braking'
+  refs=2  va=82040334  '838_I_PRO_OPTIONS_SET_DIFFICULTY'
+  refs=2  va=8204021c  '104_C_CAR_DETAILS'
+  refs=2  va=820401b4  '430_COMMUNITY_FIND_FRIENDS'
+  refs=2  va=820400dc  '2_C_INI_LOADING'
+  refs=2  va=820400a8  'E3_LOADING_CONTROLLER'
+  refs=2  va=82040094  'E3_LOADING_WHEEL'
+  refs=2  va=82040078  'H_SPONSOR_CHALLENGE_STATUS'
+  refs=2  va=82040058  'H_GENERIC_TITLE'
+  refs=2  va=8203fef4  '506_C_LIV_LAYER_SELECT'
+  refs=2  va=8203fe8c  '16_DYNAMIC_LOADING_CONTROLLER'
+  refs=2  va=8203fe54  '18_DYNAMIC_LOADING_KINECT'
+  refs=2  va=8203fe1c  '318_USER_CREATED_HOPPER'
+  refs=2  va=8203fdd4  '308_C_OPT_RESTRICTIONS'
+  refs=2  va=8203fcd4  '705_MESSAGE_BOX'
+  refs=2  va=8203fc1c  '925_PAUSE_MENU'
+  refs=2  va=8203fbc8  '510_C_LIV_ADVANCED_COLOR'
+  refs=2  va=8203fba0  '606_D_POP_FILTER'
+  refs=2  va=8203fb5c  'H_POPUP_MENU'
+  refs=2  va=8203fb38  '839_D_PLAYERCARD'
+  refs=2  va=8203fb24  '042_D_POP_RATE_ITEM'
+  refs=2  va=8203faac  'H_FIXED_SETTING_LIST'
+  refs=2  va=8203fa98  '830_GAMMA_ADJUST'
+  refs=2  va=8203f99c  '926_REPLAY_HUD'
+  refs=2  va=8203f95c  'H_RIVAL_OFFER_CAREER_EVENT'
+  refs=2  va=8203f8f0  '554_I_INSTALL_UPGRADES'
+  refs=2  va=8203f8d8  '569_I_UPG_WIZ_RECOMMEND'
+  refs=2  va=8203d020  'COMPONENT_SCROLLING_LIST'
+  refs=2  va=8203ca04  'MakeName'
+  refs=2  va=8203c948  'COMPONENT_HELP_BUTTON_BAR'
+  refs=2  va=8203c934  'TEXT_SCREEN_NAME'
+  refs=2  va=8203bd48  'selectCar'
+  refs=2  va=820365ec  'TEXT_DESCRIPTION'
+  refs=2  va=82031d54  'Preset'
+  refs=2  va=820312d8  'CAR_PRES_GAUGE_ANIM'
+  refs=2  va=82030470  'Y0Axis_Max'
+  refs=2  va=82030464  'Y1Axis_Max'
+  refs=2  va=82030458  'XAxis_Min'
+  refs=2  va=8203044c  'XAxis_Max'
+  refs=2  va=8202c3b4  'SurfaceType'
+  refs=2  va=8202c2cc  'CarRestrictions'
+  refs=2  va=82029d44  'RollOffDelay'
+  refs=2  va=82028d7c  'CarCount'
+  refs=2  va=8202871c  'COMPONENT_POPULARITY_BAR'
+  refs=2  va=820286b0  'COMPONENT_INSTRUCTION'
+  refs=2  va=820286a0  'COMPONENT_RADIO'
+  refs=2  va=82028684  'HIDE_POSITION_TAPE_COMPLETE'
+  refs=2  va=82028668  'SHOW_POSITION_TAPE_COMPLETE'
+  refs=2  va=8202864c  'HIDE_POSITION_TAPE_FIRST'
+  refs=2  va=82028630  'SHOW_POSITION_TAPE_FIRST'
+  refs=2  va=82028614  'COMPONENT_LIST_SPONSOR_BARS'
+  refs=2  va=82028608  'TEXT_REWARD'
+  refs=2  va=820285f4  'TEXT_REWARD_TITLE'
+  refs=2  va=820285e4  'TEXT_DETAILS'
+  refs=2  va=820285d0  'TEXT_DETAILS_TITLE'
+  refs=2  va=820285b4  'TEXT_POPULARITY_RANK_SUFFIX'
+  refs=2  va=8202859c  'TEXT_POPULARITY_RANK'
+  refs=2  va=82028584  'TEXT_POPULARITY_TITLE'
+  refs=2  va=82028530  'COMPONENT_COMBINED_NOTIFICATION'
+  refs=2  va=820284e4  'SHOW_STATS'
+  refs=2  va=8202844c  'HIDE_INSTANT'
+  refs=2  va=82028428  'TEXT_MESSAGE'
+  refs=2  va=82027adc  'NumberAchieved'
+  refs=2  va=82027ad4  'HideBar'
+  refs=2  va=82027ac8  'ShowInfo'
+  refs=2  va=820277ec  'cutscene_marker'
+  refs=2  va=82026810  'TEXT_SCREEN_TITLE'
+  refs=2  va=82026424  'game:\\media\\Tracks\\%s\\Ribbon_%02d\\TrackRoute%03d.xml'
+  refs=2  va=820256c0  'IDS_InputHint_Map_NoBackBtn_R'
+  refs=2  va=82023258  'continue'
+  refs=2  va=8201f4a8  'PreConditions'
+  refs=2  va=8201ef14  'PivotDirection'
+  refs=2  va=8201ef0c  'Spring'
+  refs=2  va=8201eefc  'Animation'
+  refs=2  va=8201eef4  'Start'
+  refs=2  va=8201eee4  'Cancel'
+  refs=2  va=8201ec7c  'GameStrings'
+  refs=2  va=8201e4c0  'Limits'
+  refs=2  va=8201e43c  'PostAnimFadeFromColor'
+  refs=2  va=8201deb8  'Reward'
+  refs=2  va=8201d8c8  'CarID'
+  refs=2  va=8201bb38  'Game:\\Media\\Cars\\shared\\ShaderSettings\\Normal.xml;Game:\\Media\\Cars\\shared\\ShaderSettings\\Matte.xml'
+  refs=2  va=82018da8  'UPDATE %s SET Flags=%d WHERE Id=%u'
+  refs=2  va=82015ff4  'UpgradeWizard'
+  refs=2  va=82014a14  'Length'
+  refs=2  va=82013020  'Main/AuctionsOpen'
+  refs=2  va=82012e7c  'Main/DistanceDriven'
+  refs=2  va=82012e34  'Main/NumVictories'
+  refs=2  va=82012bb8  'Main/NumOnlineCarsWon'
+  refs=2  va=82012b74  'Main/NumCatMouseGames'
+  refs=2  va=82012b08  'Main/CurrentCarTimeDriven'
+  refs=2  va=82011e94  'ClassID'
+  refs=2  va=820113c4  'COMMIT;'
+  refs=2  va=820112ac  'GarageId'
+  refs=2  va=8200dfd4  'Main/Credits'
+  refs=2  va=8200c6c4  'IDS_AIDifficulty_Hard'
+  refs=2  va=8200c6ac  'IDS_AIDifficulty_Medium'
+  refs=2  va=8200c694  'IDS_AIDifficulty_Easy'
+  refs=2  va=8200c684  'IDS_Misc_Off'
+  refs=2  va=8200c678  'IDS_Misc_On'
+  refs=2  va=8200c1a8  'State'
+  refs=2  va=8200c0f0  'SELECT '
+  refs=2  va=8200bec4  'TargetClass'
+  refs=2  va=8200a778  'Place'
+  refs=2  va=8200a4b4  'Career_EventResults'
+  refs=2  va=8200a250  'UnlockLevel'
+  refs=2  va=82009f7c  'TimeOfDayStart'
+  refs=2  va=82009c20  'CareerEventStyle'
+  refs=2  va=82009acc  'Profile'
+  refs=2  va=820099a0  'MediaName'
+  refs=2  va=82009640  'Sequence'
+  refs=2  va=820084f4  'CareerEventUI'
+  refs=2  va=820081bc  'GameOptions2'
+  refs=2  va=820066e0  'Level'
+  refs=2  va=820066d4  'Barnfind'
+  refs=2  va=82005688  'MaxTime'
+  refs=2  va=82005674  'SilenceWeighting'
+  refs=2  va=82005654  'MinTime'
+  refs=2  va=8200564c  'Timer'
+  refs=2  va=820054f0  'DISABLED'
+  refs=2  va=820054e8  'ENABLED'
+  refs=2  va=820054d0  'BLURRED'
+  refs=2  va=820054b4  'FOCUSED'
+  refs=2  va=82004a18  'string too long'
+  refs=1  va=832c18e8  '.?AUCParams1ITrackPresentationEnableZoneMeshesReady@CTrackPresentationDeferred@@'
+  refs=1  va=832be4a0  '.?AV?$CTireModelBase@VCBaseCarModel@@@@'
+  refs=1  va=832b3478  '.?AV?$_Ref_count@VJoinLocalXSessionOperation@?1??JoinLocal@XSession@Network@@QAAXK_NPAVIXSessionOperationCompl...'
+  refs=1  va=832ac7d4  '.?AVCBuffer@Core@@'
+  refs=1  va=832aade8  '.?AV?$TRefCountedObject@VCAudioCue@@@@'
+  refs=1  va=8328b5e8  '.?AV?$ObjectContainerRef@VCWaitForDisconnection@States@@@RTTI@@'
+  refs=1  va=83241790  '.?AV?$_Ref_count@V?$ObjectContainerRef@VCStopActiveDialogues@States@@@RTTI@@@tr1@std@@'
+  refs=1  va=822db3a0  'spectators'
+  refs=1  va=822db398  'models'
+  refs=1  va=822db388  'numSpriteAngles'
+  refs=1  va=822db374  'bSpritesBothSides'
+  refs=1  va=822db328  'suffix'
+  refs=1  va=822db30c  'randomsize'
+  refs=1  va=822db304  'offsetZ'
+  refs=1  va=822db2fc  'offsetY'
+  refs=1  va=822db2f4  'offsetX'
+  refs=1  va=822db2e8  'crowdclass'
+  refs=1  va=822d934c  'DownloadContent'
+  refs=1  va=822d9320  'Xls.WebServices.Content, Xls.WebServices'
+  refs=1  va=822d7e80  'Error in AsyncWriteContentTask::WriteDataFile'
+  refs=1  va=822d7958  'content'
+  refs=1  va=822d794c  '%s\\%s.%s'
+  refs=1  va=822d7818  'Content Manager is not initialized'
+  refs=1  va=822b0e64  'owningBlock != 0'
+  refs=1  va=822adbf8  'e:\\xenon\\main_xdkfeb12\\core\\private\\xdk\\xtl\\graphics\\xgraphics\\ucode\\compiler\\asm\\asm.cpp'
+  refs=1  va=822aa474  'pItem != pObjList->pSentinel'
+  refs=1  va=822aa468  'pObjList'
+  refs=1  va=822aa458  'pItem'
+  refs=1  va=82286a58  'automatic extension loading failed: %s'
+  refs=1  va=822868a0  'LIKE or GLOB pattern too complex'
+  refs=1  va=82286870  'ESCAPE expression must be a single character'
+  refs=1  va=8228657c  'too many terms in %s BY clause'
+  refs=1  va=82286140  'malformed database schema (%s)'
+  refs=1  va=82286138  '%s - %s'
+  refs=1  va=8228608c  '%s %T cannot reference objects in database %s'
+  refs=1  va=82286028  'foreign key constraint failed'
+  refs=1  va=82285f20  'sqlite_temp_master'
+  refs=1  va=82285e10  'a NATURAL join may not have an ON or USING clause'
+  refs=1  va=82285dd8  'cannot have both ON and USING clauses in the same join'
+  refs=1  va=82285d98  'cannot join using column %s - column not present in both tables'
+  refs=1  va=82285c6c  'table %s may not be modified'
+  refs=1  va=82285c44  'cannot modify %s because it is a view'
+  refs=1  va=82285abc  'corrupt database'
+  refs=1  va=82285aa8  'unknown database %T'
+  refs=1  va=82285938  '%r %s BY term out of range - should be between 1 and %d'
+  refs=1  va=822858bc  'invalid page number %d'
+  refs=1  va=822858a0  '2nd reference to page %d'
+  refs=1  va=82285884  '(NULL)'
+  refs=1  va=82285850  'minute'
+  refs=1  va=82285840  'second'
+  refs=1  va=82285838  'month'
+  refs=1  va=822856d8  '_ROWID_'
+  refs=1  va=822856d0  'ROWID'
+  refs=1  va=82284a90  'REINDEXEDESCAPEACHECKEYBEFOREIGNOREGEXPLAINSTEADDATABASELECTABLEFTHENDEFERRABLELSEXCEPTRANSACTIONATURALTERAISE...'
+  refs=1  va=822816b0  'full_column_names'
+  refs=1  va=8228169c  'short_column_names'
+  refs=1  va=8227eda4  'vorbis'
+  refs=1  va=8227e728  '..\\src\\fmod_profile_codec.cpp'
+(6894 strings with xrefs)
+
+--- functions ranked by FP-instruction density (top 250) ---
+  #  1  entry=82fcd368  score= 772  fpLoads= 40  fpArith= 93  size= 206  name=FUN_82fcd368
+  #  2  entry=829d9b38  score= 648  fpLoads= 54  fpArith= 27  size=  91  name=FUN_829d9b38
+  #  3  entry=829d99c8  score= 648  fpLoads= 54  fpArith= 27  size=  91  name=FUN_829d99c8
+  #  4  entry=82a5c510  score= 614  fpLoads= 55  fpArith= 16  size= 427  name=FUN_82a5c510
+  #  5  entry=829d95d0  score= 546  fpLoads= 45  fpArith= 24  size= 106  name=FUN_829d95d0
+  #  6  entry=829d23b8  score= 520  fpLoads= 26  fpArith= 65  size= 114  name=FUN_829d23b8
+  #  7  entry=829d19f8  score= 422  fpLoads= 23  fpArith= 48  size=  85  name=FUN_829d19f8
+  #  8  entry=829da4c8  score= 416  fpLoads= 26  fpArith= 39  size=  92  name=FUN_829da4c8
+  #  9  entry=829da638  score= 396  fpLoads= 24  fpArith= 39  size=  84  name=FUN_829da638
+  # 10  entry=82fafd08  score= 372  fpLoads= 26  fpArith= 28  size= 104  name=FUN_82fafd08
+  # 11  entry=82e36a70  score= 322  fpLoads= 25  fpArith= 18  size=  77  name=FUN_82e36a70
+  # 12  entry=829c07c0  score= 252  fpLoads= 18  fpArith= 18  size=  46  name=FUN_829c07c0
+  # 13  entry=82b8c978  score= 250  fpLoads= 23  fpArith=  5  size= 100  name=FUN_82b8c978
+  # 14  entry=82a88740  score= 250  fpLoads= 17  fpArith= 20  size=  62  name=FUN_82a88740
+  # 15  entry=830394a0  score= 228  fpLoads= 18  fpArith= 12  size= 128  name=FUN_830394a0
+  # 16  entry=829c1630  score= 220  fpLoads= 12  fpArith= 25  size=  66  name=FUN_829c1630
+  # 17  entry=824496e0  score= 218  fpLoads= 17  fpArith= 12  size=  36  name=FUN_824496e0
+  # 18  entry=82fba610  score= 216  fpLoads= 12  fpArith= 24  size=  61  name=FUN_82fba610
+  # 19  entry=8300b858  score= 206  fpLoads= 15  fpArith= 14  size=  88  name=FUN_8300b858
+  # 20  entry=82481e48  score= 204  fpLoads= 14  fpArith= 16  size=  51  name=FUN_82481e48
+  # 21  entry=823f2b48  score= 198  fpLoads= 15  fpArith= 12  size=  55  name=FUN_823f2b48
+  # 22  entry=82a8a378  score= 186  fpLoads= 15  fpArith=  9  size=  76  name=FUN_82a8a378
+  # 23  entry=82b73b50  score= 182  fpLoads= 17  fpArith=  3  size= 128  name=FUN_82b73b50
+  # 24  entry=8300a3e0  score= 180  fpLoads= 18  fpArith=  0  size=  48  name=FUN_8300a3e0
+  # 25  entry=82a8b150  score= 180  fpLoads= 18  fpArith=  0  size=  43  name=FUN_82a8b150
+  # 26  entry=82643258  score= 180  fpLoads= 14  fpArith= 10  size=  69  name=FUN_82643258
+  # 27  entry=82d2cfa0  score= 178  fpLoads= 13  fpArith= 12  size=  62  name=FUN_82d2cfa0
+  # 28  entry=82f53e88  score= 176  fpLoads=  8  fpArith= 24  size=  35  name=FUN_82f53e88
+  # 29  entry=829d9918  score= 174  fpLoads= 13  fpArith= 11  size=  44  name=FUN_829d9918
+  # 30  entry=82d30c18  score= 172  fpLoads= 14  fpArith=  8  size=  75  name=FUN_82d30c18
+  # 31  entry=82a04f78  score= 166  fpLoads= 15  fpArith=  4  size=  65  name=FUN_82a04f78
+  # 32  entry=82fd2e98  score= 160  fpLoads= 16  fpArith=  0  size=  69  name=FUN_82fd2e98
+  # 33  entry=829c0738  score= 160  fpLoads= 16  fpArith=  0  size=  33  name=FUN_829c0738
+  # 34  entry=82d30a50  score= 158  fpLoads= 13  fpArith=  7  size=  90  name=FUN_82d30a50
+  # 35  entry=82cc3198  score= 156  fpLoads=  8  fpArith= 19  size= 120  name=FUN_82cc3198
+  # 36  entry=82d2f3b8  score= 154  fpLoads= 13  fpArith=  6  size=  32  name=FUN_82d2f3b8
+  # 37  entry=82d2b458  score= 154  fpLoads=  9  fpArith= 16  size=  37  name=FUN_82d2b458
+  # 38  entry=82408410  score= 152  fpLoads= 14  fpArith=  3  size=  26  name=FUN_82408410
+  # 39  entry=82bb5fa8  score= 150  fpLoads= 11  fpArith= 10  size=  37  name=FUN_82bb5fa8
+  # 40  entry=823fa678  score= 144  fpLoads= 14  fpArith=  1  size=  28  name=FUN_823fa678
+  # 41  entry=82e5fac0  score= 142  fpLoads=  9  fpArith= 13  size=  37  name=FUN_82e5fac0
+  # 42  entry=82bb4938  score= 140  fpLoads= 14  fpArith=  0  size=  41  name=FUN_82bb4938
+  # 43  entry=82b54550  score= 136  fpLoads=  8  fpArith= 14  size=  63  name=FUN_82b54550
+  # 44  entry=82e36390  score= 134  fpLoads= 13  fpArith=  1  size=  37  name=FUN_82e36390
+  # 45  entry=8300a740  score= 130  fpLoads= 13  fpArith=  0  size=  63  name=FUN_8300a740
+  # 46  entry=829d9778  score= 128  fpLoads=  8  fpArith= 12  size=  29  name=FUN_829d9778
+  # 47  entry=823fc2d8  score= 124  fpLoads= 12  fpArith=  1  size=  26  name=FUN_823fc2d8
+  # 48  entry=82fd6900  score= 122  fpLoads= 11  fpArith=  3  size=  53  name=FUN_82fd6900
+  # 49  entry=82cd34b8  score= 122  fpLoads=  9  fpArith=  8  size=  70  name=FUN_82cd34b8
+  # 50  entry=8274a5e0  score= 120  fpLoads= 12  fpArith=  0  size=  66  name=FUN_8274a5e0
+  # 51  entry=82cc0098  score= 120  fpLoads= 12  fpArith=  0  size=  25  name=FUN_82cc0098
+  # 52  entry=825747a0  score= 114  fpLoads=  9  fpArith=  6  size=  28  name=FUN_825747a0
+  # 53  entry=82c01838  score= 114  fpLoads=  5  fpArith= 16  size=  37  name=caseD_0
+  # 54  entry=823edcb0  score= 110  fpLoads=  9  fpArith=  5  size=  72  name=FUN_823edcb0
+  # 55  entry=8240af08  score= 110  fpLoads=  9  fpArith=  5  size=  39  name=FUN_8240af08
+  # 56  entry=82af3d78  score= 106  fpLoads=  9  fpArith=  4  size=  73  name=FUN_82af3d78
+  # 57  entry=82d316f0  score= 106  fpLoads=  7  fpArith=  9  size=  34  name=FUN_82d316f0
+  # 58  entry=829c06b8  score= 106  fpLoads=  7  fpArith=  9  size=  32  name=FUN_829c06b8
+  # 59  entry=82c32428  score= 104  fpLoads=  8  fpArith=  6  size=  32  name=FUN_82c32428
+  # 60  entry=82c05a58  score= 104  fpLoads=  8  fpArith=  6  size=  31  name=FUN_82c05a58
+  # 61  entry=82e36948  score= 102  fpLoads=  7  fpArith=  8  size=  30  name=FUN_82e36948
+  # 62  entry=82c010a8  score= 100  fpLoads= 10  fpArith=  0  size=  43  name=FUN_82c010a8
+  # 63  entry=82a19130  score=  96  fpLoads=  8  fpArith=  4  size=  36  name=FUN_82a19130
+  # 64  entry=82bb6d88  score=  96  fpLoads=  8  fpArith=  4  size=  24  name=FUN_82bb6d88
+  # 65  entry=8247bf90  score=  94  fpLoads=  7  fpArith=  6  size=  36  name=FUN_8247bf90
+  # 66  entry=82a00678  score=  92  fpLoads=  8  fpArith=  3  size=  36  name=FUN_82a00678
+  # 67  entry=82a005c8  score=  92  fpLoads=  8  fpArith=  3  size=  36  name=FUN_82a005c8
+  # 68  entry=82bb4890  score=  90  fpLoads=  9  fpArith=  0  size=  41  name=FUN_82bb4890
+  # 69  entry=82e609a8  score=  90  fpLoads=  9  fpArith=  0  size=  38  name=FUN_82e609a8
+  # 70  entry=82a5d210  score=  90  fpLoads=  9  fpArith=  0  size=  36  name=FUN_82a5d210
+  # 71  entry=82cc0100  score=  90  fpLoads=  9  fpArith=  0  size=  19  name=FUN_82cc0100
+  # 72  entry=829bd920  score=  88  fpLoads=  6  fpArith=  7  size=  27  name=FUN_829bd920
+  # 73  entry=82b57ed0  score=  82  fpLoads=  7  fpArith=  3  size=  56  name=FUN_82b57ed0
+  # 74  entry=82b59910  score=  78  fpLoads=  7  fpArith=  2  size=  32  name=FUN_82b59910
+  # 75  entry=83156618  score=  76  fpLoads=  6  fpArith=  4  size=  39  name=FUN_83156618
+  # 76  entry=82b6bc50  score=  76  fpLoads=  6  fpArith=  4  size=  28  name=FUN_82b6bc50
+  # 77  entry=82b56728  score=  76  fpLoads=  6  fpArith=  4  size=  20  name=FUN_82b56728
+  # 78  entry=82640df0  score=  76  fpLoads=  6  fpArith=  4  size=  18  name=FUN_82640df0
+  # 79  entry=82859938  score=  74  fpLoads=  5  fpArith=  6  size=  42  name=FUN_82859938
+  # 80  entry=82490530  score=  74  fpLoads=  5  fpArith=  6  size=  30  name=FUN_82490530
+  # 81  entry=82be9b78  score=  72  fpLoads=  6  fpArith=  3  size=  40  name=FUN_82be9b78
+  # 82  entry=82f84df8  score=  72  fpLoads=  6  fpArith=  3  size=  25  name=FUN_82f84df8
+  # 83  entry=83156560  score=  72  fpLoads=  6  fpArith=  3  size=  23  name=FUN_83156560
+  # 84  entry=82e31458  score=  70  fpLoads=  7  fpArith=  0  size=  66  name=FUN_82e31458
+  # 85  entry=82f99170  score=  70  fpLoads=  5  fpArith=  5  size=  45  name=FUN_82f99170
+  # 86  entry=83032e40  score=  70  fpLoads=  5  fpArith=  5  size=  32  name=FUN_83032e40
+  # 87  entry=829d07c0  score=  70  fpLoads=  5  fpArith=  5  size=  32  name=FUN_829d07c0
+  # 88  entry=82523b90  score=  70  fpLoads=  5  fpArith=  5  size=  26  name=FUN_82523b90
+  # 89  entry=82c13fc8  score=  68  fpLoads=  6  fpArith=  2  size= 294  name=FUN_82c13fc8
+  # 90  entry=827e3ae0  score=  68  fpLoads=  6  fpArith=  2  size=  49  name=FUN_827e3ae0
+  # 91  entry=829d3590  score=  68  fpLoads=  6  fpArith=  2  size=  39  name=FUN_829d3590
+  # 92  entry=82b20550  score=  66  fpLoads=  3  fpArith=  9  size=  24  name=FUN_82b20550
+  # 93  entry=82e7dc48  score=  64  fpLoads=  6  fpArith=  1  size=  52  name=FUN_82e7dc48
+  # 94  entry=82e7db78  score=  64  fpLoads=  6  fpArith=  1  size=  52  name=FUN_82e7db78
+  # 95  entry=8285c3e0  score=  64  fpLoads=  6  fpArith=  1  size=  40  name=FUN_8285c3e0
+  # 96  entry=829d0840  score=  64  fpLoads=  4  fpArith=  6  size=  26  name=FUN_829d0840
+  # 97  entry=82f5c2f0  score=  62  fpLoads=  5  fpArith=  3  size=  26  name=FUN_82f5c2f0
+  # 98  entry=82449770  score=  60  fpLoads=  6  fpArith=  0  size=  50  name=FUN_82449770
+  # 99  entry=82ddc398  score=  60  fpLoads=  6  fpArith=  0  size=  42  name=FUN_82ddc398
+  #100  entry=82fd1878  score=  60  fpLoads=  6  fpArith=  0  size=  33  name=FUN_82fd1878
+  #101  entry=82fd10f8  score=  60  fpLoads=  6  fpArith=  0  size=  33  name=FUN_82fd10f8
+  #102  entry=82633628  score=  60  fpLoads=  6  fpArith=  0  size=  33  name=FUN_82633628
+  #103  entry=82d87cb0  score=  60  fpLoads=  6  fpArith=  0  size=  25  name=FUN_82d87cb0
+  #104  entry=82bb5750  score=  60  fpLoads=  6  fpArith=  0  size=  25  name=FUN_82bb5750
+  #105  entry=82b7d300  score=  60  fpLoads=  6  fpArith=  0  size=  23  name=FUN_82b7d300
+  #106  entry=8245a070  score=  60  fpLoads=  6  fpArith=  0  size=  20  name=FUN_8245a070
+  #107  entry=82462d38  score=  60  fpLoads=  4  fpArith=  5  size=  50  name=FUN_82462d38
+  #108  entry=82be7e70  score=  60  fpLoads=  4  fpArith=  5  size=  29  name=FUN_82be7e70
+  #109  entry=82f6d1d0  score=  58  fpLoads=  5  fpArith=  2  size=  40  name=FUN_82f6d1d0
+  #110  entry=82c05e18  score=  56  fpLoads=  4  fpArith=  4  size=  53  name=FUN_82c05e18
+  #111  entry=82b94d90  score=  56  fpLoads=  4  fpArith=  4  size=  45  name=FUN_82b94d90
+  #112  entry=82a2d800  score=  52  fpLoads=  4  fpArith=  3  size=  31  name=FUN_82a2d800
+  #113  entry=82ae8778  score=  52  fpLoads=  4  fpArith=  3  size=  21  name=FUN_82ae8778
+  #114  entry=82fa5f78  score=  50  fpLoads=  5  fpArith=  0  size=  68  name=FUN_82fa5f78
+  #115  entry=83032fa0  score=  50  fpLoads=  5  fpArith=  0  size=  59  name=FUN_83032fa0
+  #116  entry=82633ca8  score=  50  fpLoads=  5  fpArith=  0  size=  50  name=FUN_82633ca8
+  #117  entry=82636b78  score=  50  fpLoads=  5  fpArith=  0  size=  40  name=FUN_82636b78
+  #118  entry=82592e20  score=  50  fpLoads=  5  fpArith=  0  size=  36  name=FUN_82592e20
+  #119  entry=83032ec0  score=  50  fpLoads=  5  fpArith=  0  size=  32  name=FUN_83032ec0
+  #120  entry=83032dc0  score=  50  fpLoads=  5  fpArith=  0  size=  31  name=FUN_83032dc0
+  #121  entry=82b7d218  score=  50  fpLoads=  5  fpArith=  0  size=  31  name=FUN_82b7d218
+  #122  entry=83116960  score=  50  fpLoads=  5  fpArith=  0  size=  28  name=FUN_83116960
+  #123  entry=823f9568  score=  50  fpLoads=  5  fpArith=  0  size=  21  name=FUN_823f9568
+  #124  entry=82d4a970  score=  50  fpLoads=  3  fpArith=  5  size=  22  name=FUN_82d4a970
+  #125  entry=83009b50  score=  48  fpLoads=  4  fpArith=  2  size=  33  name=FUN_83009b50
+  #126  entry=8281da58  score=  48  fpLoads=  4  fpArith=  2  size=  32  name=FUN_8281da58
+  #127  entry=83009a78  score=  48  fpLoads=  4  fpArith=  2  size=  31  name=FUN_83009a78
+  #128  entry=82c3d698  score=  48  fpLoads=  4  fpArith=  2  size=  24  name=FUN_82c3d698
+  #129  entry=82c31738  score=  48  fpLoads=  4  fpArith=  2  size=  24  name=FUN_82c31738
+  #130  entry=82c316d8  score=  48  fpLoads=  4  fpArith=  2  size=  24  name=FUN_82c316d8
+  #131  entry=82546ed8  score=  48  fpLoads=  4  fpArith=  2  size=  22  name=FUN_82546ed8
+  #132  entry=82b77310  score=  44  fpLoads=  4  fpArith=  1  size=  31  name=FUN_82b77310
+  #133  entry=82b700e0  score=  44  fpLoads=  4  fpArith=  1  size=  30  name=FUN_82b700e0
+  #134  entry=82f59138  score=  44  fpLoads=  4  fpArith=  1  size=  18  name=FUN_82f59138
+  #135  entry=82b6bcc0  score=  42  fpLoads=  3  fpArith=  3  size=  24  name=FUN_82b6bcc0
+  #136  entry=829d3748  score=  42  fpLoads=  3  fpArith=  3  size=  16  name=FUN_829d3748
+  #137  entry=82fb3730  score=  40  fpLoads=  4  fpArith=  0  size=  33  name=FUN_82fb3730
+  #138  entry=82fd5318  score=  40  fpLoads=  4  fpArith=  0  size=  30  name=FUN_82fd5318
+  #139  entry=823f4080  score=  40  fpLoads=  4  fpArith=  0  size=  27  name=FUN_823f4080
+  #140  entry=82fd9440  score=  40  fpLoads=  4  fpArith=  0  size=  25  name=FUN_82fd9440
+  #141  entry=824ad750  score=  40  fpLoads=  4  fpArith=  0  size=  16  name=FUN_824ad750
+  #142  entry=82b06e80  score=  38  fpLoads=  3  fpArith=  2  size=  32  name=FUN_82b06e80
+  #143  entry=82b6d020  score=  38  fpLoads=  3  fpArith=  2  size=  23  name=FUN_82b6d020
+  #144  entry=82be7f60  score=  38  fpLoads=  3  fpArith=  2  size=  22  name=FUN_82be7f60
+  #145  entry=82be7f08  score=  38  fpLoads=  3  fpArith=  2  size=  22  name=FUN_82be7f08
+  #146  entry=82b06c00  score=  36  fpLoads=  2  fpArith=  4  size=  40  name=FUN_82b06c00
+  #147  entry=82af38d0  score=  34  fpLoads=  3  fpArith=  1  size=  50  name=FUN_82af38d0
+  #148  entry=82b06ff0  score=  34  fpLoads=  3  fpArith=  1  size=  31  name=FUN_82b06ff0
+  #149  entry=82f6d140  score=  34  fpLoads=  3  fpArith=  1  size=  28  name=FUN_82f6d140
+  #150  entry=8261e730  score=  34  fpLoads=  3  fpArith=  1  size=  19  name=FUN_8261e730
+  #151  entry=82c307f8  score=  34  fpLoads=  3  fpArith=  1  size=  18  name=FUN_82c307f8
+  #152  entry=82c58de4  score=  34  fpLoads=  3  fpArith=  1  size=  17  name=caseD_1
+  #153  entry=82c18268  score=  30  fpLoads=  3  fpArith=  0  size= 202  name=FUN_82c18268
+  #154  entry=83010fe8  score=  30  fpLoads=  3  fpArith=  0  size= 179  name=FUN_83010fe8
+  #155  entry=82a649c8  score=  30  fpLoads=  3  fpArith=  0  size=  66  name=FUN_82a649c8
+  #156  entry=82a20968  score=  30  fpLoads=  3  fpArith=  0  size=  66  name=FUN_82a20968
+  #157  entry=82a64b28  score=  30  fpLoads=  3  fpArith=  0  size=  61  name=FUN_82a64b28
+  #158  entry=82a20ac8  score=  30  fpLoads=  3  fpArith=  0  size=  61  name=FUN_82a20ac8
+  #159  entry=82a65540  score=  30  fpLoads=  3  fpArith=  0  size=  49  name=FUN_82a65540
+  #160  entry=82a215a0  score=  30  fpLoads=  3  fpArith=  0  size=  49  name=FUN_82a215a0
+  #161  entry=824af570  score=  30  fpLoads=  3  fpArith=  0  size=  45  name=FUN_824af570
+  #162  entry=82b06cd8  score=  30  fpLoads=  3  fpArith=  0  size=  33  name=FUN_82b06cd8
+  #163  entry=82c19888  score=  30  fpLoads=  3  fpArith=  0  size=  32  name=FUN_82c19888
+  #164  entry=827ffee8  score=  30  fpLoads=  3  fpArith=  0  size=  30  name=FUN_827ffee8
+  #165  entry=82633c30  score=  30  fpLoads=  3  fpArith=  0  size=  30  name=FUN_82633c30
+  #166  entry=82faf6d0  score=  30  fpLoads=  3  fpArith=  0  size=  25  name=FUN_82faf6d0
+  #167  entry=82f91a70  score=  30  fpLoads=  3  fpArith=  0  size=  25  name=FUN_82f91a70
+  #168  entry=82be9b10  score=  30  fpLoads=  3  fpArith=  0  size=  25  name=FUN_82be9b10
+  #169  entry=82b7eb90  score=  30  fpLoads=  3  fpArith=  0  size=  25  name=FUN_82b7eb90
+  #170  entry=82fb7650  score=  30  fpLoads=  3  fpArith=  0  size=  16  name=FUN_82fb7650
+(170 functions met FP threshold)
+
+--- functions referencing live anchors ('FreeRoam', 'AutoShow', 'FreePlay') ---
+  anchor va=0x82006454  refs=0
+  anchor va=0x8208e274  refs=0
+  anchor va=0x82012288  refs=0
+
+=== done ===
