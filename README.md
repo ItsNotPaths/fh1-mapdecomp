@@ -69,7 +69,7 @@ landmarks (smelter, dam, city centre, warehouse, redrocks, etc).
 
 ### What is missing
 
-In honest terms, the user assesses real visual coverage at **10–20% of
+In honest terms, real visual coverage is at **10–20% of
 the populated world**, not the 80% earlier docs claimed. What's gone:
 
 - The full *city* (most building density beyond the named landmarks).
@@ -263,7 +263,7 @@ when bits beyond the slot count are set ⇒ render nothing.
 
 Caveat: the field is heterogeneous. On 1-slot sections it sometimes
 holds a float (~1.0). The high-bit-deactivation rule degrades safely
-in that case. The shipped behaviour is correct on the cases the user
+in that case. The shipped behaviour is correct on the cases
 checked visually (festival barriers, fence runs, road decals) but
 isn't proven exhaustive.
 
