@@ -31,6 +31,9 @@ from fh1_mapdecomp.blender_run import (
 from fh1_mapdecomp.collobjs import (
     extract_collobjs, summarise as collobjs_summarise,
 )
+from fh1_mapdecomp.crowd_inst import (
+    extract_crowd_instances, summarise as crowd_inst_summarise,
+)
 from fh1_mapdecomp.lzx import DecompressionError
 from fh1_mapdecomp.pvs_inst import (
     extract_pvs_instances, summarise as pvs_inst_summarise,
@@ -178,6 +181,18 @@ def cmd_collobjs_inst(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_crowd_inst(args: argparse.Namespace) -> int:
+    zip_path = resolve_binzip(Path(args.source))
+    out_dir = Path(args.output) / "crowd_inst"
+    doc = extract_crowd_instances(
+        zip_path, out_dir,
+        progress=_progress("crowd_inst"),
+    )
+    crowd_inst_summarise(doc)
+    print(f"wrote {out_dir}/index.json", file=sys.stderr)
+    return 0
+
+
 def cmd_blender(args: argparse.Namespace) -> int:
     out_dir = Path(args.output)
     json_path = out_dir / "world" / "ribbon_00.json"
@@ -199,6 +214,9 @@ def cmd_blender(args: argparse.Namespace) -> int:
     pvs_inst_dir: Path | None = out_dir / "pvs_inst"
     if getattr(args, "no_pvs_inst", False) or not (pvs_inst_dir / "index.json").exists():
         pvs_inst_dir = None
+    crowd_inst_dir: Path | None = out_dir / "crowd_inst"
+    if getattr(args, "no_crowd_inst", False) or not (crowd_inst_dir / "index.json").exists():
+        crowd_inst_dir = None
     out_blend = out_dir / "blender" / "colorado.blend"
     out_blend.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -215,6 +233,7 @@ def cmd_blender(args: argparse.Namespace) -> int:
         terrain_hi_dir=terrain_hi_dir,
         collobjs_dir=collobjs_dir,
         pvs_inst_dir=pvs_inst_dir,
+        crowd_inst_dir=crowd_inst_dir,
         limit=args.limit or 0,
         variants=args.variants or "",
         no_cubes=args.no_cubes,
@@ -305,8 +324,26 @@ def cmd_all(args: argparse.Namespace) -> int:
         if rc != 0 and not args.keep_going:
             return rc
 
+    # crowd_inst — inanimate procedural-instance props (festival metal
+    # stanchion barriers, booth stalls, festival stages, grandstand
+    # supports). Animated spectator scatter is filtered out by descriptor
+    # heuristic; rig/anim pipeline is out of scope. See
+    # `docs/pgeo-body.md §3.6` for the format and `crowd_inst.py`
+    # for the descriptor → rmb_tag mapping.
+    if not args.no_crowd_inst:
+        crowd_args = argparse.Namespace(
+            source=args.source, output=str(out_dir),
+        )
+        try:
+            rc = cmd_crowd_inst(crowd_args)
+        except Exception as ex:
+            print(f"[crowd_inst] skipping: {ex}", file=sys.stderr)
+            rc = 0
+        if rc != 0 and not args.keep_going:
+            return rc
+
     # TODO: vegetation extractor goes here when implemented (PGEO grass
-    # / vegetation / crowd variants — currently undecoded bodies).
+    # / vegetation variants — currently undecoded bodies).
 
     if args.no_blender:
         return rc
@@ -321,6 +358,7 @@ def cmd_all(args: argparse.Namespace) -> int:
         no_terrain_hi=args.no_terrain_hi,
         no_collobjs=args.no_collobjs,
         no_pvs_inst=args.no_pvs_inst,
+        no_crowd_inst=args.no_crowd_inst,
     )
     rc = cmd_blender(blender_args)
     if rc != 0 and not args.keep_going:
@@ -408,6 +446,12 @@ def build_parser() -> argparse.ArgumentParser:
                           "matches for bases missing from the rmb pool)")
     cop.set_defaults(func=cmd_collobjs_inst)
 
+    crp = sub.add_parser("crowd-inst",
+                         help="extract inanimate crowd PGEO placements "
+                              "(festival barriers / stalls / stages / grandstands)")
+    _add_source(crp, output=True)
+    crp.set_defaults(func=cmd_crowd_inst)
+
     bp = sub.add_parser("blender", help="build colorado.blend from placement JSON")
     bp.add_argument("--output", required=True, help="output directory (same as used for world)")
     _add_blender_args(bp)
@@ -423,6 +467,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help="skip the CollObjs.xml → rmb instance collection")
     bp.add_argument("--no-pvs-inst", action="store_true",
                     help="skip the PVS+PVSZ instance collection")
+    bp.add_argument("--no-crowd-inst", action="store_true",
+                    help="skip the inanimate crowd PGEO instance collection")
     bp.set_defaults(func=cmd_blender)
 
     rp = sub.add_parser("render-topdown", help="render orthographic top-down PNG of colorado.blend")
@@ -446,6 +492,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help="PVS filter policy (default: freeroam)")
     ap.add_argument("--no-collobjs", action="store_true",
                     help="skip CollObjs.xml → rmb instance extraction")
+    ap.add_argument("--no-crowd-inst", action="store_true",
+                    help="skip inanimate-crowd PGEO instance extraction "
+                         "(festival barriers, stalls, stages, grandstands)")
     ap.add_argument("--ribbon-dir",
                     help="path to Ribbon_00/ for PVS+CollObjs (auto-detected if omitted)")
     ap.add_argument("--collobjs-policy", choices=("freeroam", "all"),

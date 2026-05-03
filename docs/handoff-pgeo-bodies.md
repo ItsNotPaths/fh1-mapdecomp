@@ -103,6 +103,43 @@ update plus a body decoder under `src/fh1_mapdecomp/pgeo_body/`.
   `grass` bodies. Tried 7 topologies on v42k7 chunk vbufs — all noise
   (chunk vbufs aren't meshes); see `project_investigation_closer_2026-04-28`.
 
+## Crowd quick-look (2026-05-03)
+
+End-of-session probe on 5 crowd PGEOs found:
+
+- 0x48 size invariant holds.
+- `n_major` at body+0x08 is the instance count (samples: 41, 41, 41, 55, 43).
+- Body contains an **ASCII descriptor string** before the position
+  array — exactly the same pattern as v42k7's `proc_inline`
+  subvariant. Examples:
+  - `crowd_proc_clrd_festival` + `crowd_stages_103`
+  - `crowd_proc_clrd_festival` + `crowd_stages_117`
+  - `crowd_proc_clrd_festival` + `crowd_secampsite_5`
+  - `FESTIVAL_SECOND_15` (different shape)
+- World-coord f32 positions follow the descriptor (verified one
+  sample: `c4 a6 22 3d` = `-1329.07`, matches bbox X).
+
+This means **`v42k7.parse_proc_inline_positions` is most of the
+decoder you need for crowd**. Open
+`src/fh1_mapdecomp/pgeo_body/v42k7.py`, look at `parse_proc_inline_positions`
+and `_proc_descriptor_class` (the latter classifies descriptors like
+`models_proc_clrd_trees_*` → tree-mesh placeholder). Crowd needs an
+analogous descriptor classifier:
+
+| descriptor prefix                  | placeholder mesh class   |
+|------------------------------------|--------------------------|
+| `crowd_stages_*`                   | festival-stage spectator |
+| `crowd_secampsite_*`               | campsite spectator       |
+| `crowd_proc_clrd_festival_*` (other) | generic festival crowd |
+| `FESTIVAL_SECOND_*`                | second-stage spectator   |
+
+Until the actual spectator mesh is identified, emit each instance as
+a 1m-tall locator quad per position (same trick v42k7's proc-inline
+uses with `_proc_synth_mesh`). User can swap in a real spectator
+rmb later. Whether the festival metal stanchion barriers live in a
+specific descriptor (likely `crowd_secampsite_*` or similar) is the
+verification step.
+
 ## Suggested concrete approach for `crowd`
 
 1. **Pick anchor samples.** Pull 3 crowd PGEOs from very different

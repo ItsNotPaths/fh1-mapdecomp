@@ -511,26 +511,177 @@ we have uses unpacked floats.
 
 ---
 
-### 3.6 crowd (ver=42, kind=3) — 8,544 files
+### 3.6 crowd (ver=42, kind=3) — 8,525 files (Colorado bin.zip)
 
-Header scale pair `(60, -1)`; bbox is a 2×6×2 m box.
+**Status (2026-05-03):** Decoded. 8,514 / 8,525 files parse with the
+unified Format A/B layout below; the 11 remaining are Format C
+(large-bbox, f32-explicit) and decode separately. 712,174 placement
+positions recovered across 1,778 unique descriptors. Inventory dumps
+live at `probes/out/crowd_families.tsv` (58 families) and
+`probes/out/crowd_descriptors.tsv` (1,778 rows).
+
+A "crowd" PGEO is a **procedural-instance container** very similar in
+shape to v42k7's `proc_inline` subvariant (§3.2.2): a single ASCII
+descriptor identifying the asset, a restated bbox, an instance count,
+two LE pointers to a runtime-baked record array, and a packed per-
+instance record stream. There is no inline vertex buffer; the asset
+geometry is referenced by descriptor name and looked up against the
+`rmb.bin` pool / a sibling crowd-mesh pool at runtime.
+
+Header pattern: scale `(60, -1)`; kind=3; bbox is whatever the chunk's
+spatial extent is — small (~2×6×2 m for a single-instance file like
+`__R00G00537`), large (~100×16×100 m for a packed festival-area-wide
+file). The `0x14 invariant` (§1.2) holds on every sample.
+
+#### 3.6.1 Format A — descriptor at body 0x60 (924 files)
+
+Used when the descriptor zone fits within the standard prolog tail.
+Recognised by an ASCII `crowd_*` byte at file offset `0x60`. Layout:
 
 ```
-0x5c  4 bytes   `-98d` — secondary count/flags
-0x60  C-string  "crowd_proc_clrd_festival\0"
-0x78  C-string  "crowd_stages_136\0"                 (double-string!)
-0x88  4 bytes   "27\0\0"                              (numeric suffix as text)
-0x90  3×f32 BE  bbox_min re-stated
-0xa0  3×f32 BE  bbox_max re-stated
-0xb0  u32 BE    1                                    count
-0xb4  u32 BE    0x4078f62f — hash
-0xbc  u32 BE    0x4c78f62f — hash (sibling)
-0xd0  bytes     0x7fff2492, 0x7fffd101 — DEC3N-packed normals (sentinel-like)
+file off  size  field
+--------  ----  -----
+0x34..0x5b      shared prolog (n_major @ 0x3c, total_size @ 0x48 = len(file))
+0x60..        cstring descriptor — e.g. "crowd_proc_clrd_festivalcrowd_stalls_12\0"
+              (often a doubled name with no internal null between the parts —
+              "festivalcrowd_stalls_12" is one concatenated tag, not two)
+              Trailed in some samples by a numeric-as-text suffix like "27\0".
+0x90..0x9b    3 × f32 BE  bbox_min restated
+0x9c..0x9f    pad (zero)
+0xa0..0xab    3 × f32 BE  bbox_max restated
+0xac..0xaf    pad
+0xb0..0xb3    u32 BE      count N (number of placement records)
+0xb4..0xb7    u32 LE      ptr_a  (runtime-baked VA, low byte tracks position)
+0xb8..0xbb    pad
+0xbc..0xbf    u32 LE      ptr_b  (ptr_b - ptr_a == N × 12 — STRONG anchor)
+0xc0..0xc3    pad
+0xc4..0xc7    u32 BE      0x0000000f marker (= 15; meaning unconfirmed,
+                          stable across all standard files)
+0xc8..0xcf    pad (8 bytes zero)
+0xd0..        records: N × 12 bytes (see §3.6.3)
+end-4..end    4-byte trailer (zero in samples)
 ```
 
-Crowd carries material hashes and small per-instance data but no
-in-body vertex payload — animated crowds likely share a small mesh pool
-referenced by the hashes.
+For a single-instance file the records live inline after the marker
+and the file ends a few bytes later. There is no second sub-record
+in normal samples; `__R00G00537` (a 220 B single-stall file) is the
+canonical example.
+
+#### 3.6.2 Format B — descriptor at body 0x98 (7,574 files)
+
+Identical to Format A except the descriptor sits 0x38 bytes later
+because the prolog tail at `0x60..0x97` is reserved for runtime
+section state (mostly zero on disk; carries varying small u32 fields
+like `01 06 00 00` or `01 f3 00 00` at body 0x84). Recognised by an
+ASCII `crowd_*` byte at file offset `0x98`. The post-descriptor
+layout (bbox restated, count, pointers, marker, records) is identical
+to Format A; the parser doesn't care which of the two it is once it
+has located the descriptor's terminating null.
+
+The split between Format A and Format B is correlated with descriptor
+content but isn't 1-to-1 — `crowd_proc_clrd_*` shows up in both. The
+likeliest explanation is build-toolchain era differences (an older
+authoring tool packing the name early vs a newer one keeping the
+prolog layout reserved). For decoding purposes both are handled by:
+
+1. Scan `body[0x5c..0xb0]` for the first `crowd|CROWD|FESTI` anchor.
+2. Read a null-terminated cstring from there.
+3. From `(null_offset + 4) & ~3`, scan u32-aligned offsets for a 3×f32
+   triplet that matches `header.bbox_min` within ±1 m on X/Z and within
+   `bbox_height + 5` m on Y (the restated copy is bit-imprecise — last
+   bit of the f32 mantissa drifts by 1).
+4. From the matched bbox offset, fixed +32 lands on the count, +32+32
+   lands on the first record (matches `ptr_b - ptr_a == count × 12`).
+
+#### 3.6.3 Per-instance record (12 bytes)
+
+```
++0x00  u16 BE   X fraction of bbox X-extent  (0..65535)
++0x02  u16 BE   Y fraction of bbox Y-extent  (0..65535)
++0x04  u16 BE   Z fraction of bbox Z-extent  (0..65535)
++0x06  u16 BE   packed orientation — semantics TBD
+                Low byte = constant 0x02 on observed barrier samples;
+                high byte clusters by triples of records. Plausibly a
+                quantized yaw plus rope-segment group ID. NOT a clean
+                DEC3N normal — magnitudes 0.27..1.42 if decoded that way.
++0x08  u32      flag — always 0x00000000 on inanimate-prop (barrier)
+                samples. Some animated `crowd_*` records flip byte +0x08
+                to 0x01 (possibly is-animated / material-pool index).
+                Verification deferred to the animated-crowd workstream.
+
+**History (don't repeat).** The initial reading copied v42k7's
+`parse_proc_inline_positions` — `u32 BE` at +0x00 decoded as packed
+10:10:10:2. That gave coherent positions inside the chunk bbox but
+spread Y across the FULL bbox Y-extent (~6 m on a 6.4 m bbox), which
+is physically implausible for stanchion posts on flat festival ground.
+The straight-X-line artefact in the resulting Blender scene came from
+Y-noise drowning out the X+Z signal. Fixed 2026-05-03 by treating
+each axis as its own u16: per-chunk Y-spread collapses to 0.32..2.42 m
+(real terrain undulation), X+Z resolve into recognizable barrier
+curves.
+```
+
+#### 3.6.4 Format C — large-bbox / f32-explicit (11 files)
+
+The 11 files that don't fit Format A/B are wide-area scatters
+(`crowd_proc_clrd_festivalcrowd_garagerear_17` and
+`crowd_proc_clrd_festivalcrowd_secampsite_91`, with 5 / 6 chunk-pool
+copies each). Body 0x90..0xab is filled with `0x7fffffff` sentinels
+(bbox_min = bbox_max = +FLT_MAX), signalling "no bbox restated;
+positions stored explicitly". After the sentinel block the body
+carries a small count-prefixed pre-header (a `(ptr, count)` pair at
+0xb4..0xbb) followed by 16-byte records of 3 × f32 BE world-space
+positions plus 4 bytes of trailing data. Used because the parent
+chunk's bbox spans hundreds of metres (374×11×335 m for `garagerear`)
+and the 10-bit packed format would degrade to ~0.4 m precision per
+axis.
+
+Decoding Format C is shelved for a follow-up pass — the gap is real
+(the festival garage-rear and SE campsite areas) but small (0.13% of
+files) and doesn't include the festival-circle barriers.
+
+#### 3.6.5 Descriptor families
+
+The 58 first-5-token descriptor families fall into rough buckets
+(full table in `probes/out/crowd_families.tsv`). Selected highlights:
+
+| family                                       | files | unique descs | inst count | inanimate? |
+|----------------------------------------------|------:|-------------:|-----------:|-----------:|
+| `crowd_proc_clrd_festival_crowd`             |  2173 |          423 |    160 151 | ❌ animate spectator scatter |
+| `crowd_proc_clrd_festival_fest`              |   730 |          130 |     83 898 | ❌ animate spectator |
+| `crowd_proc_track_main_p2p`                  |   715 |           67 |     34 044 | ❌ race-track crowd (race-only) |
+| `crowd_proc_clrd_multiplayer_warehouse(s)`   |   307 |           41 |     43 226 | ❌ multiplayer-only spectator |
+| `crowd_proc_clrd_festivalcrowd_stalls`       |    78 |           10 |     24 122 | ✅ festival booth structures |
+| `crowd_proc_clrd_festivalcrowd_stages`       |   298 |           46 |     23 226 | ✅ festival stage structures |
+| `crowd_proc_clrd_festivalcrowd_grandstands`  |    10 |            2 |      4 050 | ✅ grandstand structures |
+| `crowd_proc_clrd_fest_area3` (`barriers_*`)  |    36 |            6 |        489 | ✅ **festival metal stanchion barriers** |
+
+The 6 `barriers_*` descriptors are the user-confirmed gap from the
+2026-05-03 handoff:
+
+```
+crowd_proc_clrd_fest_area3_barriers_northeast_1   24 inst (avg)  bbox 21×6×25  centre (-860,-7.9,-139)
+crowd_proc_clrd_fest_area3_barriers_northeast_2    3 inst         bbox 3.5×6×3 centre (-777,-6.5, 45)
+crowd_proc_clrd_fest_area3_barriers_northeast_3    6 inst         bbox 3.3×6×6 centre (-702,-7.4,-88)
+crowd_proc_clrd_fest_area3_barriers_northwest_1    9 inst         bbox 13×6×11 centre (-1049,-9.4,-137)
+crowd_proc_clrd_fest_area3_barriers_southeast_1   24 inst         bbox 94×8×82 centre (-915,-9.6,-346)
+crowd_proc_clrd_fest_area3_barriers_southwest_1   21 inst         bbox 38×7×56 centre (-1082,-12.1,-314)
+```
+
+Cardinal-direction barrier loops around the festival circle at
+~(-1000, -10, -240), with one each at NE/NW/SE/SW corners plus two
+small NE stubs.
+
+#### 3.6.6 Asset reference (TODO)
+
+The descriptor name is the only obvious asset-ref in the file. There
+is no `_LOD\d+` suffix, no rmb-pool handle, no content-hash. The
+runtime presumably resolves `crowd_proc_clrd_X_Y` to a template mesh
+via a sibling registry (analogous to v42k7 `models_proc_clrd_*`,
+§3.2.2 — also unresolved). For inanimate descriptors the template is
+likely a single rmb-pool tag matching the descriptor's category
+(`OBJ_FEST_BarrierMetal_*`, `OBJ_FEST_Stall_*`, etc.) — testing this
+is the immediate next step (task #6 in the handoff).
 
 ---
 

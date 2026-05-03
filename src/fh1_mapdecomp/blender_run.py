@@ -91,6 +91,7 @@ def run_import(
     terrain_hi_dir: Optional[Path] = None,
     collobjs_dir: Optional[Path] = None,
     pvs_inst_dir: Optional[Path] = None,
+    crowd_inst_dir: Optional[Path] = None,
     limit: int = 0,
     variants: str = "",
     no_cubes: bool = False,
@@ -105,6 +106,8 @@ def run_import(
         args += ["--collobjs", str(collobjs_dir)]
     if pvs_inst_dir is not None:
         args += ["--pvs-inst", str(pvs_inst_dir)]
+    if crowd_inst_dir is not None:
+        args += ["--crowd-inst", str(crowd_inst_dir)]
     if limit:
         args += ["--limit", str(limit)]
     if variants:
