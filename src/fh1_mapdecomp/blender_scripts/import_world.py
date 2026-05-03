@@ -48,11 +48,15 @@ def parse_args():
                     help="directory with inanimate-crowd PGEO instance per-blob "
                          ".npz + index.json (festival barriers, stalls, stages, "
                          "grandstands)")
+    ap.add_argument("--grass-inst", default="",
+                    help="directory with `grass` PGEO foliage-scatter "
+                         "instance per-blob .npz + index.json "
+                         "(CProceduralVegetation; placeholder Grass_LOD01 mesh)")
     ap.add_argument("--limit", type=int, default=0, help="cap chunks (0=all)")
     ap.add_argument("--variants", default="", help="comma-separated variant filter")
     ap.add_argument("--no-cubes", action="store_true", help="use empties instead of bbox-cube meshes")
     ap.add_argument("--keep-bbox-cubes", action="store_true",
-                    help="emit bbox cubes for grass/vegetation/crowd/landmark_anim "
+                    help="emit bbox cubes for grass/light_glows/crowd/landmark_anim "
                          "PGEO chunks (off by default — PVS covers their placements)")
     return ap.parse_args(argv)
 
@@ -61,9 +65,13 @@ VARIANT_COLORS = {
     "terrain":       (0.80, 0.55, 0.30, 1.0),
     "terrain_hi":    (0.65, 0.45, 0.25, 1.0),
     "grass":         (0.30, 0.70, 0.20, 1.0),
-    "vegetation":    (0.15, 0.55, 0.45, 1.0),
+    "light_glows":   (0.15, 0.55, 0.45, 1.0),
     "crowd":         (0.85, 0.25, 0.25, 1.0),
     "crowd_inst":    (0.95, 0.45, 0.20, 1.0),
+    # Bright yellow — temporary marker color so cylinder placeholders
+    # are obvious in the scene while the per-instance template→handle
+    # mapping is still unresolved.
+    "grass_inst":    (1.00, 0.95, 0.00, 1.0),
     "collobjs":      (0.90, 0.75, 0.35, 1.0),
     "pvs_inst":      (0.85, 0.55, 0.85, 1.0),
     "landmark_anim": (1.00, 0.85, 0.15, 1.0),
@@ -482,8 +490,8 @@ def main():
     # diagnostic comparison.
     BBOX_NOISE_VARIANTS = (
         "terrain", "terrain_hi",     # owned by terrain_hi (real meshes)
-        "grass", "vegetation",       # PGEO bodies undecoded — placeholder
-                                     # for the future vegetation extractor
+        "grass", "light_glows",      # PGEO bodies undecoded — placeholder
+                                     # for future grass / light-glow extractors
         "crowd",                     # crowd PGEO undecoded
         "v42k7", "v44k5",            # legacy runtime instancing chunks;
                                      # PVS covers their placement
@@ -601,6 +609,14 @@ def main():
                          src_prefix="crowd_src",
                          inst_prefix="crowd_inst",
                          blob_prefix="crowd_blob")
+    if args.grass_inst:
+        _import_inst_dir(Path(args.grass_inst),
+                         label="grass_inst",
+                         collection="fh1_grass_inst",
+                         material_variant="grass_inst",
+                         src_prefix="grass_src",
+                         inst_prefix="grass_inst",
+                         blob_prefix="grass_blob")
 
     # Restore depsgraph handlers and trigger a single update so the
     # scene is consistent before we save / render.

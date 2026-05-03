@@ -120,9 +120,12 @@
     placement store (golf carts, haybales, grandstands, BarrierBrand fences).
 [?] landmark_anim PGEO chunks (33 chunks) — currently dismissed as Maya rig
     metadata strings. Worth a deeper look for wind turbine placements.
-[?] crowd PGEO chunks (1,783) — undecoded body
-[?] vegetation PGEO chunks (278) — undecoded body
-[?] grass PGEO chunks (3,199) — undecoded body
+[✓] crowd PGEO chunks — decoded 2026-05-03 (crowd_inst.py)
+[?] light_glows PGEO chunks (278) — body shape decoded (pgeo-body.md §3.5);
+    extractor unwired. Light entity data (CProceduralLightGlows). Was
+    mislabeled "vegetation".
+[?] grass PGEO chunks (3,199) — undecoded body. Engine class
+    CProceduralVegetation; actual foliage scatter.
 [?] PVSZoneSpeeds.dat — never investigated
 
 # What we DO understand (the 4 confirmed placement stores):

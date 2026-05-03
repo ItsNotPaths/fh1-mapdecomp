@@ -3,10 +3,17 @@
 ## Mission
 
 Decode the per-variant PGEO body layouts that we haven't cracked yet, so
-the Blender export gets crowd, vegetation, and the missing festival
+the Blender export gets crowd, foliage, and the missing festival
 metal barriers. Start with **`crowd`** (suspected host of the festival
 metal stanchion barriers, since those are crowd-control props), then
-**`vegetation`**, then everything else.
+**`grass`** (the engine's `CProceduralVegetation` class — actual
+foliage scatter), then everything else.
+
+> **Naming gotcha:** the PGEO variant historically called `vegetation`
+> (`(43, 6)`) is the engine's `CProceduralLightGlows` class — light
+> entity data, not foliage. It has been renamed `light_glows`. The
+> engine's `CProceduralVegetation` class is what we label `grass`. See
+> `docs/pgeo-body.md §0` for the full variant ↔ engine class table.
 
 When done: one `_extract_*_instances` extractor per variant emitting
 the standard `index.json + blobs/*.npz` schema, wired into `cmd_all`
@@ -45,12 +52,12 @@ Run `probes/probe_bodies.py` to regenerate. Last counts:
 | `v42k7`         | 14122 |       4268B | 230×72×186                  | ✅ |
 | `grass`         | 11292 |       3100B | 14×5×21                     | ❌ |
 | `crowd`         |  8544 |        296B | 6×8×17                      | ❌ ← start here |
-| `vegetation`    |  3316 |        496B | 19×11×19                    | ❌ |
+| `light_glows`   |  3316 |        496B | 19×11×19                    | 🟡 (body shape decoded — see pgeo-body.md §3.5; not yet wired) |
 | `terrain`       |  2288 |       5992B | 128×200000×128 (Y is sentinel) | ✅ |
 | `v44k5`         |  1578 |       1152B | 640×38×214                  | ❌ |
 | `landmark_anim` |   447 |     270172B | 47×52×12                    | ❌ (see notes) |
 
-`crowd`, `vegetation`, `grass` all have small bbox extents (≤ 21m
+`crowd`, `light_glows`, `grass` all have small bbox extents (≤ 21m
 per axis) and small uncompressed sizes, suggesting per-cell scatter
 with a few-dozen instance positions each. `v44k5` has larger
 horizontal bbox but small Y, suggesting a streaming-roads-style
@@ -99,7 +106,7 @@ update plus a body decoder under `src/fh1_mapdecomp/pgeo_body/`.
 - **`scripts/decode_chunk_vbuf.py`** + **`scripts/vbuf_to_blender.py`**
   + **`scripts/test_vbuf_is_mesh.py`** + **`scripts/vbuf_topology_gallery.py`**
   — the v42k7 vertex-buffer reverse-engineering toolkit. Reusable
-  for guessing vertex-buffer layouts in `crowd` / `vegetation` /
+  for guessing vertex-buffer layouts in `crowd` / `light_glows` /
   `grass` bodies. Tried 7 topologies on v42k7 chunk vbufs — all noise
   (chunk vbufs aren't meshes); see `project_investigation_closer_2026-04-28`.
 
@@ -178,12 +185,24 @@ verification step.
    `cmd_collobjs_inst`. The `import_world.py` Blender helper already
    has a generic `_import_inst_dir` — reuse it.
 
-After `crowd`, the same pattern applies to `vegetation` (small
-vegetation scatter), `grass` (tuft scatter — possibly just position
-arrays without a unique mesh ref; might need a placeholder
-fern/grass-blade mesh), and `landmark_anim` (rigs with embedded
-`.max` paths — see memory entry, the rig names are already extracted
-to `probes/out/landmark_anim_names.tsv`).
+After `crowd`, the same pattern applies to `grass` (decoded
+2026-05-03 — engine class `CProceduralVegetation`; per-blade
+positions decoded into 1.05M placements (287k unique); covers
+roadside/Festival/Plains scatter only — trees live in the `v42k7`
+proc-inline subvariant `models_proc_clrd_trees_*`, see §3.2.2 —
+ships a synthetic bright-yellow cylinder placeholder until the
+external per-template→rmb-handle table is found),
+`light_glows` (point-cloud of light entities; no mesh — render as
+empties or as a GN-instanced beacon glyph), and `landmark_anim`
+(rigs with embedded `.max` paths — see memory entry, the rig names
+are already extracted to `probes/out/landmark_anim_names.tsv`).
+
+**Open foliage gap:** standalone trees / shrubs / hillside foliage
+are NOT covered by the `grass` extractor. The `v42k7` proc-inline
+subvariant carries them: `pgeo_body/v42k7.parse_proc_inline_positions`
+already decodes the per-tree positions, but no extractor wires them
+into `out/<variant>_inst/`. Mirror `grass_inst.py` to ship those
+placements next.
 
 `v44k5` is lower priority: it shows up in 1578 chunks but the
 horizontal bbox is much larger (640×214m), suggesting a streaming
@@ -289,6 +308,7 @@ applies the basis. Don't try to pre-bake the swap.
 The Blender scene has crowd / spectator meshes visible at the
 festival hub and along race routes. The festival metal stanchion
 barriers (the user's specific gap) are present where they should be.
-Vegetation and grass scatter visible across the world. New
+Foliage scatter (`grass` variant) visible across the world. Light
+glows optionally exposed as Blender lights / empties. New
 extractors documented in `docs/parsed-inventory.md` with
 status promoted from 🟡 to ✅.

@@ -25,13 +25,23 @@ bin.zip                            ★ MAIN WORLD DATA — 218,571 entries total
                                                       position table + 79-record
                                                       chunk-VBUF. Slot picker
                                                       still unsolved.
-                            [✗] v44k5           202   foliage / distance impostor;
-                                                      not a building source.
-                            [✗] vegetation      278   per-instance foliage; only
-                                                      bbox info readable.
-                            [✗] grass         3,199   procedural grass; bbox only.
-                            [✗] crowd         1,783   per-instance crowd actors;
-                                                      bbox only — body undecoded.
+                            [✗] v44k5           202   procedural FX emitters
+                                                      (anim_proc_clrd_fx_*); body
+                                                      undecoded.
+                            [✗] light_glows     278   light entity data —
+                                                      CProceduralLightGlows. Body
+                                                      shape decoded (pgeo-body.md
+                                                      §3.5); extractor unwired.
+                                                      Was misnamed "vegetation".
+                            [✗] grass         3,199   foliage scatter —
+                                                      CProceduralVegetation. Bbox
+                                                      only; per-instance pos table
+                                                      undecoded.
+                            [✓] crowd         1,783   per-instance crowd actors +
+                                                      a few inanimate prop loops
+                                                      (barriers/stalls/stages).
+                                                      Body decoded — see
+                                                      crowd_inst.py.
                             [~] landmark_anim    33   Maya tool-export rig
                                                       metadata strings ONLY (zero
                                                       world bboxes match landmarks).
@@ -40,10 +50,12 @@ bin.zip                            ★ MAIN WORLD DATA — 218,571 entries total
                                                       out 100%.
                             [✗] terrain         444   terrain mesh chunks (not
                                                       world objects).
-   [✓] fiz        16,934    FOLIAGE CELLS — fully decoded:
+   [✗] fiz        16,934    FOLIAGE CELLS — investigation dead-ended 2026-04-29.
                             'fiz ' magic, version 1, 116m × 116m bbox per cell,
-                            10m sub-cell, 0.1m quant. Tables A/B with 12-byte
-                            records. Vegetation only. Not a building source.
+                            10m sub-cell, 0.1m quant. Block A decoded but Block B
+                            trailer is a render-flag bitmask, not topology. Not a
+                            placement source. See memory
+                            project_fh1_fiz_format_2026-04-29.
    [—] bix        42,657    Texture container. Not investigated (textures only).
    [—] sh          4,768    Shader binaries.
    [—] soundscape  4,675    Audio config per chunk.
@@ -144,9 +156,12 @@ Ribbon_00/                         per-ribbon (track-graph-level) files
     none generalize.
 [?] landmark_anim PGEO body decoder — 33 chunks, currently treated as Maya
     rig data. Worth one more pass with focus on world-coord triples in body.
-[?] crowd / vegetation / grass PGEO bodies — three large chunk classes,
-    bodies undecoded. Unlikely placement source for buildings but possible
-    for haybales (vegetation) and props (crowd).
+[✓] crowd PGEO body — decoded 2026-05-03 (crowd_inst.py). 712k+ placement
+    positions; inanimate filter ships barriers/stalls/stages/grandstands.
+[?] grass / light_glows PGEO bodies — grass = CProceduralVegetation
+    (foliage scatter), light_glows = CProceduralLightGlows (light entity
+    data, formerly mislabeled "vegetation"). Bodies undecoded; placement
+    source for foliage and lights respectively.
 [?] PVSZoneSpeeds.dat — never investigated.
 
 # What we now confidently understand:

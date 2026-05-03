@@ -680,11 +680,15 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
 def iter_blobs(
     zip_path: Path,
     *,
-    tag_prefix: Optional[str] = None,
+    tag_prefix: Optional[str | tuple[str, ...]] = None,
     lod: Optional[str] = None,
 ) -> Iterator[tuple[Entry, bytes, RmbBlob]]:
     """Yield (entry, raw bytes, blob) for every rmb.bin entry whose primary
     blob parses; optionally filter by tag prefix and/or LOD digits.
+
+    ``tag_prefix`` accepts either a single prefix string or a tuple of
+    prefixes (matched via ``str.startswith`` semantics — any prefix in the
+    tuple matches).
 
     Iteration order follows ``list_entries`` (= bin.zip central directory
     order); the index of an entry within this iteration is its global
@@ -732,16 +736,45 @@ class TerrBlob:
     voff: int
 
 
-def iter_terr_blobs(
-    zip_path: Path, *, lod: str = "00",
-) -> Iterator[tuple[Entry, bytes, TerrBlob]]:
-    """Backward-compat iterator for the existing terrain_hi pipeline.
+# Terrain-area tag prefixes that ship world-baked vertex positions in
+# the rmb pool. Confirmed via probe `probes/probe_missing_terrain.py`
+# (2026-05-03) — the conservative add list excludes families with mixed
+# terrain/building content (`MT_`, `Maintown_`, `MAINTOWN_`, `Redstone_`,
+# `Rocks_`) until a sub-prefix filter can disambiguate them. Adding any
+# of these brings ~13k more terrain tiles / ~13M vertices into the
+# Blender export — see `docs/world-architecture.md §2.3`.
+TERRAIN_TAG_PREFIXES: tuple[str, ...] = (
+    "TERR_",
+    "Plains_",
+    "Mountains_",
+    "Foothills_",
+    "RedRock_",
+    "Reservoir_",
+    "Blends_",
+    "CLRD_",
+    "ROAD_",
+    "road_",
+)
 
-    Filters to ``TERR_*`` blobs only. ``lod=""`` returns every LOD
-    (including blobs whose tag contains no LOD token).
+
+def iter_terr_blobs(
+    zip_path: Path,
+    *,
+    lod: str = "00",
+    prefixes: tuple[str, ...] = TERRAIN_TAG_PREFIXES,
+) -> Iterator[tuple[Entry, bytes, TerrBlob]]:
+    """Iterator over terrain rmb blobs.
+
+    Defaults to the full terrain-area prefix list (`TERRAIN_TAG_PREFIXES`)
+    so terrain_hi catches Plains/Mountains/Foothills/RedRock/Reservoir
+    tiles — historically the filter was `TERR_*` only and ~13k terrain
+    tiles silently dropped. Pass a narrower tuple to restrict.
+
+    ``lod=""`` returns every LOD (including blobs whose tag contains no
+    LOD token).
     """
     for entry, data, blob in iter_blobs(
-        zip_path, tag_prefix="TERR_", lod=(lod if lod else None),
+        zip_path, tag_prefix=prefixes, lod=(lod if lod else None),
     ):
         yield entry, data, TerrBlob(
             entry=entry, tag=blob.tag, lod=blob.lod,

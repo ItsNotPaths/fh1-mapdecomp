@@ -49,12 +49,22 @@ def parse_header(buf: bytes) -> PgeoHeader:
 
 
 def classify(h: PgeoHeader) -> str:
+    # (version, kind) → variant label. Confirmed against the xex RTTI
+    # `proceduralGeometry::CProcedural*` class table
+    # (`docs/xex-walk/04-rtti-classes.txt`):
+    #   (42, 2) grass         = CProceduralVegetation     (Grass_Ungrouped_*; engine class is "Vegetation")
+    #   (42, 3) crowd         = CProceduralCharacters     (crowd_*)
+    #   (42, 7) v42k7         = CProceduralModels         (Models_Ungrouped_* / models_proc_clrd_*)
+    #   (42, 8) terrain       = CProceduralLightMaps      (LightMap_XX_YY; tiles carry lightmap UVs)
+    #   (43, 6) light_glows   = CProceduralLightGlows     (Glow_*; light entity data — NOT foliage)
+    #   (44, 4) landmark_anim = CProceduralAnimatedObject (Anim_ANIM_*; festival rides, autoshow rigs)
+    #   (44, 5) v44k5         = CProceduralPoints? (anim_proc_clrd_fx_*; FX emitter placement; unconfirmed)
     return {
         (42, 2): "grass",
         (42, 3): "crowd",
         (42, 7): "v42k7",
         (42, 8): "terrain",
-        (43, 6): "vegetation",
+        (43, 6): "light_glows",
         (44, 4): "landmark_anim",
         (44, 5): "v44k5",
     }.get((h.version, h.kind), f"unknown_v{h.version}k{h.kind}")

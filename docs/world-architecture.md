@@ -48,13 +48,13 @@ backdrop. For per-format internals, jump to:
 
 | variant | chunks | typical size | grid? | role |
 |---|---|---|---|---|
-| terrain      | 444    | 128 m × 128 m (exact) | 100 % grid-locked | heightfield tiles |
-| v42k7        | 14,122 | ~300 m × ~300 m (varies ±10 m) | 0.8 % snap → irregular | prop / scene chunks |
-| vegetation   | 3,316  | 2–20 m | 7 % snap → per-prop AABBs | individual flora placements |
-| crowd        | 8,544  | varies | varies | NPC walk volumes |
-| grass        | 11,292 | small | varies | grass density tiles |
-| landmark_anim| 447    | varies | varies | festival rides + animated landmarks |
-| v44k5        | 1,578  | varies | varies | undecoded variant |
+| terrain      | 444    | 128 m × 128 m (exact) | 100 % grid-locked | heightfield tiles + lightmap UVs (`CProceduralLightMaps`) |
+| v42k7        | 14,122 | ~300 m × ~300 m (varies ±10 m) | 0.8 % snap → irregular | prop / scene chunks (`CProceduralModels`) |
+| light_glows  | 3,316  | 2–20 m | 7 % snap → per-light AABBs | light entity placements (`CProceduralLightGlows`); was misnamed `vegetation` until 2026-05-03 |
+| crowd        | 8,544  | varies | varies | NPC walk volumes (`CProceduralCharacters`) |
+| grass        | 11,292 | small | varies | foliage scatter (`CProceduralVegetation` — actual flora) |
+| landmark_anim| 447    | varies | varies | festival rides + animated landmarks (`CProceduralAnimatedObject`) |
+| v44k5        | 1,578  | varies | varies | FX emitters (likely `CProceduralPoints`); undecoded body |
 
 Per-chunk AABB lives in the PGEO header at +0x14..+0x2c; we extract
 them in `world.py` and persist as `out/world/ribbon_00.json`.

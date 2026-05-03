@@ -15,7 +15,7 @@ inventory see `parsed-inventory.md`.
 
 | stage | source | output | status |
 |---|---|---|---|
-| terrain (hi) | rmb TERR pool | `out/terrain_hi/*.npz` | ✅ 2,569 LOD00 tiles |
+| terrain (hi) | rmb pool — TERR_/Plains_/Mountains_/Foothills_/RedRock_/Reservoir_/Blends_/CLRD_/ROAD_/road_ prefixes | `out/terrain_hi/*.npz` | ✅ 1,047 unique LOD00 tiles (327 TERR + 720 non-TERR; +720 net-new vs TERR-only 2026-05-03), 2.54M vertices, world bbox ~19km × 1.3km Y × 18km Z |
 | world-space rmbs | rmb header centroid + named-asset/phantom-wrapper rules | `out/rmb_world/blobs/*.npz` | ✅ ~33k blobs after centroid-aware filter, phantom-Box drop, stacked-dedup, cross-pool ownership dedup |
 | template instances | v42k7 PGEO chunks | `out/v42k7_inst/blobs/*.npz` + `chunks/*` | ✅ ~50k instances after cull_box[0] gate, LOD-pair dedup, vs-rmb_world cross-source dedup |
 | collision props | `Ribbon_00/CollObjs.xml` | `out/collobjs_inst/*.npz` | ✅ 7,480 props (freeroam) |
@@ -43,10 +43,13 @@ extractor (see `world-architecture.md` §6).
   geometry and world centroid. See `mesh-export-state.md` § "Named-
   section refs". Probe: `probes/probe_rmb_named_section_refs.py`.
 - **PGEO** (41,587 entries, 7 variants) — header + bbox + (version,
-  kind) classifier. Bodies decoded for terrain, v42k7, v42k7 proc-
-  subvariant. Undecoded body classes: grass (11.3k), crowd (8.5k),
-  vegetation (3.3k), v44k5 (1.6k), landmark_anim (447, festival
-  rides). See `pgeo-body.md`.
+  kind) classifier (variants confirmed against xex RTTI
+  `proceduralGeometry::CProcedural*` — see `pgeo-body.md §0`). Bodies
+  decoded for terrain, v42k7, v42k7 proc-subvariant, crowd. Body shape
+  decoded for light_glows (extractor unwired). Undecoded body classes:
+  grass (11.3k; `CProceduralVegetation` — actual foliage scatter),
+  v44k5 (1.6k; FX emitters), landmark_anim (447, festival rides). See
+  `pgeo-body.md`.
 - **v42k7 instance records** — per-instance 64B chunk in
   `Models_/AModels_/pAModels_*` chunks; 96B position table; proc
   subvariant inline 40B vbuf (10:10:10:2 packed positions, 167
@@ -127,13 +130,19 @@ extractor (see `world-architecture.md` §6).
 - **`.bundle`** (429, hash-named `_0x10000xxx.bundle`) — magic
   `0x1A207F52` (= `BIX1`-related). Probable texture atlases
   (largest at ~4 MB dsize).
-- **`.fiz`** (16,934) — confirmed foliage with world-bbox header,
-  body decode pending.
+- **`.fiz`** (16,934) — confirmed foliage with world-bbox header.
+  Investigation dead-ended 2026-04-29 (Block-A decoded; Block-B is a
+  render-flag bitmask, not topology) — not a placement source. See
+  memory `project_fh1_fiz_format_2026-04-29`.
 - **`.sh`** (4,768) — confirmed SH probes, world-XZ-keyed filenames
   (`Colorado__shdata__n2550x_n1645z.sh`); per-probe stride ~175 B.
 - **`.fxobj`** (173) — compiled shaders, out of scope for map
   export.
-- **PGEO body classes**: grass (11.3k), crowd (8.5k), vegetation
-  (3.3k), v44k5 (1.6k), landmark_anim (447). All hold per-chunk
-  point/instance data we currently render as bbox-placeholder
-  cubes.
+- **PGEO body classes**: grass (11.3k — `CProceduralVegetation`,
+  decoded ✅; 287k unique placements; covers roadside/festival
+  scatter only — trees still missing, they're in v42k7 proc-inline
+  `models_proc_clrd_trees_*`), crowd (8.5k — decoded ✅),
+  light_glows (3.3k; body shape decoded — formerly mislabeled
+  `vegetation`), v44k5 (1.6k; FX emitters), landmark_anim (447).
+  Light_glows / v44k5 / landmark_anim still render as
+  bbox-placeholder cubes.

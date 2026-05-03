@@ -333,10 +333,19 @@ disk data alone (could depend on runtime predicates).
 ☐ 33 chunks; currently dismissed as Maya rig metadata. One more focused
 pass to look for world-coord triples in body could be worth it.
 
-### 6.4 crowd / vegetation / grass PGEO bodies
+### 6.4 crowd / grass / light_glows PGEO bodies
 
-☐ 5,260 chunks total, bodies undecoded. Unlikely placement source for
-static props but possible for procedural foliage / actors.
+✓ crowd — decoded 2026-05-03 (`crowd_inst.py`); 712k+ placement
+positions, inanimate filter ships barriers/stalls/stages/grandstands.
+
+☐ grass — engine class `CProceduralVegetation` (actual foliage
+scatter); body undecoded. Likely placement source for ground foliage.
+
+🟡 light_glows — engine class `CProceduralLightGlows` (light entity
+data: position + direction + cone + color + intensity). Was
+mislabeled `vegetation` until the xex RTTI cross-check; renamed
+2026-05-03. Body shape decoded (`pgeo-body.md §3.5`); extractor
+unwired.
 
 ### 6.5 PVSZoneSpeeds.dat
 

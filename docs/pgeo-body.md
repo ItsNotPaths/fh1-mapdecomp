@@ -16,6 +16,38 @@ floats are big-endian.
 
 ---
 
+## 0. Variant ↔ engine class table
+
+Confirmed against the xex RTTI dump
+(`docs/xex-walk/04-rtti-classes.txt`, namespace
+`proceduralGeometry::CProcedural*`). Use this table when classifying a
+new variant — the engine class name nails down what the file *actually*
+contains, independent of file-tag prefix.
+
+| `(ver,kind)` | Variant label   | Engine class                    | Tag prefix                              | Content                                       |
+|:-------------|:----------------|:--------------------------------|:----------------------------------------|:----------------------------------------------|
+| (42, 2)      | `grass`         | `CProceduralVegetation`         | `Grass_Ungrouped_*`                     | Foliage scatter (grass tufts AND tree/shrub instances). The "real vegetation" class. |
+| (42, 3)      | `crowd`         | `CProceduralCharacters`         | `crowd_*` / `CROWD_*`                   | Spectator placements + a few inanimate prop loops (barriers / stalls). |
+| (42, 7)      | `v42k7`         | `CProceduralModels`             | `Models_Ungrouped_*` / `models_proc_clrd_*` | Per-section instance groups referencing rmb pool entries; or proc-inline placements. |
+| (42, 8)      | `terrain`       | `CProceduralLightMaps`          | `LightMap_XX_YY`                        | Terrain tile + lightmap UVs (no per-tile heights — those live in rmb pool). |
+| (43, 6)      | `light_glows`   | `CProceduralLightGlows`         | `Glow_*`                                | **Light entity data** (position + direction + cone + color + intensity). Not foliage despite the historical "vegetation" label. |
+| (44, 4)      | `landmark_anim` | `CProceduralAnimatedObject`     | `Anim_ANIM_*`                           | Festival rides, autoshow rigs, fireworks emitters. |
+| (44, 5)      | `v44k5`         | (`CProceduralPoints`?)          | `anim_proc_clrd_fx_*`                   | Procedural FX emitter placement (geyser etc.). RTTI class unconfirmed. |
+
+Other RTTI classes that appear in `proceduralGeometry::` but are **not**
+disk-serialized as a distinct PGEO `(ver,kind)` we've seen:
+`CProceduralPoints`, `CProceduralBillboards`, `CProceduralCharacterManager`,
+`CAnimatedReplayManager`. Some of these may be runtime-only; others may
+be subvariants we haven't separated out.
+
+> **Watch for the `light_glows` ↔ `grass` mixup.** The PGEO variant
+> historically labeled `vegetation` is the engine's *light glow* class.
+> The engine's actual `Vegetation` class is what we label `grass`. Treat
+> any document or code that says "vegetation = trees" as stale and
+> probably wrong about something.
+
+---
+
 ## 1. Shared prolog (variant-agnostic)
 
 All 7 variants share the same byte layout for the first ~0x2c bytes of
@@ -28,7 +60,7 @@ body. Every field is confirmed across ≥3 samples per variant.
 | 0x40  |   4  | u32 BE  | `n_minor` — secondary count                   | Usually 0 or 1. v42k7 LARGE = 8. |
 | 0x44  |   4  | u32 BE  | `0` — padding                                 | Always 0 in samples. |
 | 0x48  |   4  | u32 BE  | **`total_size`** — **matches `len(file)`**     | **Universal anchor.** Verified on all 14 samples including the 19,476-byte landmark_anim. |
-| 0x4c  |   4  | u32 BE  | `sec_offset` — offset into file, or 0         | Zero on terrain / v44k5 / grass / vegetation / crowd. Non-zero on v42k7 (0x2a58 = 10840) and landmark_anim (0x4764 = 18276). Strong "section table / texture block start" hint. |
+| 0x4c  |   4  | u32 BE  | `sec_offset` — offset into file, or 0         | Zero on terrain / v44k5 / grass / light_glows / crowd. Non-zero on v42k7 (0x2a58 = 10840) and landmark_anim (0x4764 = 18276). Strong "section table / texture block start" hint. |
 | 0x50  |   4  | u32 BE  | `n_aux` — auxiliary count                     | Zero or small: seen 0, 14, 40, 83. v42k7 LARGE = 14 (`0x0000000e`). |
 | 0x54  |   8  | bytes   | `0` ×8 — reserved                             | All zero in samples. |
 
@@ -50,7 +82,7 @@ position is not *quite* uniform across variants:
 | -------------- | :-------: | --------------------------------------------- |
 | terrain        |   0x60    | `LightMap_97_53`                              |
 | grass          |   0x60    | `Grass_Ungrouped_15149_0`                     |
-| vegetation     |   0x60    | `Glow_WorldStaticLightGlows_1309`             |
+| light_glows    | 0x60/0x98 | `Glow_WorldStaticLightGlows_1309` (Format A) / `Glow_Gameplay_FR44_L_0` (Format B) |
 | v42k7          |   0x60    | `Models_Ungrouped_1929`                       |
 | v44k5          |   0x60    | `anim_proc_clrd_fx_geyser_0`                  |
 | crowd          |   0x60*   | `crowd_proc_clrd_festival` (then a secondary `crowd_stages_136` and a numeric suffix) |
@@ -72,7 +104,8 @@ type-prefix.
 | `LightMap_X_Y`                | terrain tile at lightmap grid cell (X,Y). |
 | `Models_Ungrouped_N`          | generic model (v42k7).                    |
 | `Grass_Ungrouped_N_M`         | scattered grass patch (grass).            |
-| `Glow_WorldStaticLightGlows_N`| static light-glow billboard (vegetation). Note: "vegetation" variant is not exclusively trees. |
+| `Glow_WorldStaticLightGlows_N`| static light-glow entity (light_glows). The variant carries pure light data — position, direction, cone, color, intensity — not foliage. |
+| `Glow_Gameplay_*_L_N`         | per-event gameplay light glow (race-checkpoint markers, dirigible/plane lights, festival event lights). Same `light_glows` variant, Format B. |
 | `anim_proc_clrd_fx_*`         | procedural animated effect (v44k5).       |
 | `crowd_proc_clrd_*` + `crowd_stages_N` | animated crowd mesh (crowd).     |
 | `Anim_ANIM_*` + `ter.tga` etc | rigged/animated landmark with texture references (landmark_anim). |
@@ -466,6 +499,119 @@ Plan when decoding landmark_anim:
 
 ### 3.4 grass (ver=42, kind=2) — 11,292 files
 
+**Engine class:** `proceduralGeometry::CProceduralVegetation` (xex
+RTTI, `docs/xex-walk/04-rtti-classes.txt:317`). The file naming
+prefix `Grass_*` is misleading — the engine class covers all
+foliage scatter (grass tufts AND tree/shrub instances). Real
+foliage placements live here, not in the misnamed `light_glows`
+variant.
+
+**Status (2026-05-03):** Body decoded. 11,292 / 11,292 files
+parse cleanly into per-instance positions; 1,052,983 placement
+positions recovered (287,917 unique after chunk-pool dedup —
+the 765k duplicates are byte-identical chunk-pool replication of
+the same scatter cell across multiple ribbons). Position decoding
+verified at 100% in-bbox across all samples. Per-instance
+orientation field undecoded (low-impact for placement
+visualisation). Extractor: `src/fh1_mapdecomp/grass_inst.py`.
+
+**Visual validation (2026-05-03 yellow-cylinder placeholder):**
+roadside grass / Festival-edge / Plains-area scatter renders in the
+right place. Trees and hillside foliage do **not** appear — the
+`grass` PGEO variant covers the per-blade roadside ground scatter
+only, not standalone tree/shrub placements. Trees almost certainly
+live in the `v42k7` *proc-inline subvariant* (descriptor prefix
+`models_proc_clrd_trees_*`, see §3.2.2). Position decoding for that
+subvariant already exists in `pgeo_body/v42k7.parse_proc_inline_positions`
+but isn't wired as a placement extractor yet — that's the obvious
+follow-up after grass.
+
+**Per-template handle table:** the per-instance template-index u16
+array is decoded (one u16 per record at file offset `rec_end`), but
+the index→rmb-pool-handle lookup is **not** in the grass PGEO body.
+Scanning all 11k trailing blocks for plain u32 BE values resolving
+to a `Grass_*`-tagged rmb showed the top hit
+(`Foothills_Grass_Area_2a_LOD01`) only matches in 0.4 % of files;
+the table lives externally (likely a runtime/zone registry built
+from `.bundle` material data, or a per-zone master we haven't
+found). Until then the extractor ships a synthetic bright-yellow
+cylinder placeholder so positions are visually verifiable.
+
+#### 3.4.1 Body layout
+
+```
+file off  size  field
+--------  ----  -----
+0x34..0x5b      shared prolog (n_minor @ 0x40, total_size @ 0x48 = len(file))
+0x60..        cstring descriptor — "Grass_Ungrouped_NNNN_0\0"
+              (NNNN is a chunk index, not an asset key)
+[null+4 → align 4]
+              n_minor × 8B records — (u32 BE handle, u32 BE 0)
+              The handles point to the **underlying terrain patch** the
+              grass scatter sits on (`TERR_*_LOD01`, `Plains_*_LOD01`,
+              `Foothills_Grass_Area_*_LOD01`). They are NOT the grass-
+              blade mesh template — that template is unidentified;
+              `grass_inst.py` uses a single representative `Grass_LOD01`
+              rmb as a placeholder for every instance.
+              Engine probably uses these handles as paint-target hints
+              (which terrain to drape this scatter over).
++0x00..0x0b   3×f32 BE  bbox_min restated (12B + 4B pad)
++0x0c..0x17   3×f32 BE  bbox_max restated (12B + 4B pad)
++0x18..0x1b   u32 BE    count_a — primary instance count (= records that
+                         decode cleanly with the 0xffff sentinel; matches
+                         visible scatter density per chunk).
++0x1c..0x1f   u32 BE    count_b — secondary count (always > count_a;
+                         appears to be a per-instance metadata table size
+                         in some unit; not yet decoded structurally).
+[zero pad to 12B-aligned record start]
+              count_a × 12B per-instance records (§3.4.2)
+              [trailing per-handle / per-LOD metadata to EOF — LOD
+               distance thresholds (e.g. 26, 75, 150, 20 m), GPU
+               pointers, material parameters; not needed for placement]
+end-4..end    (no separate trailer)
+```
+
+**0x14 invariant** (§1.2): `u32 BE @ 0x48 == len(file)` holds on
+all 11,292 samples.
+
+#### 3.4.2 Per-instance record (12 bytes)
+
+```
++0x00  u16 BE   X fraction of bbox X-extent  (0..65535)
++0x02  u16 BE   Y fraction of bbox Y-extent  (0..65535)
++0x04  u16 BE   Z fraction of bbox Z-extent  (0..65535)
++0x06  u16 BE   packed extra (orientation? scale-modifier? semantics TBD)
++0x08  u16 BE   small flag (values seen: 0, 1, 2, 3 — could be LOD
+                level, blade-template index, or quadrant rotation;
+                not currently used)
++0x0a  u16 BE   0xffff sentinel — strongest single anchor; never
+                varies. The position-table scanner locks onto it.
+```
+
+Position decoding (per axis):
+```
+world_x = bbox_min_x + (sx / 65535.0) * (bbox_max_x - bbox_min_x)
+```
+
+#### 3.4.3 Asset reference
+
+There is none we've identified for the per-instance blade mesh.
+The `n_minor` handles after the descriptor point at the underlying
+terrain patches (paint-target hints), not at a blade-template rmb.
+Searching the rmb pool for `Grass_*` tags surfaces candidates
+(`Grass_LOD01`, `Foothills_Grass_Area_*_LOD0X`,
+`MT_Area06_Road_Grass_*`) but no field in the body cleanly
+selects which one is the blade mesh for a given chunk.
+
+The current extractor uses a single representative
+`Grass_LOD01` (rmb handle 4223) as a placeholder for every
+instance. Visual review can swap in better placeholders later
+without changing the position pipeline.
+
+#### 3.4.4 Layout legacy notes
+
+The earlier scout summary documented:
+
 ```
 0x60  C-string  "Grass_Ungrouped_15149_0\0"
 0x7a  u32 BE    0x00004c7a                     (unknown; size pattern)
@@ -488,26 +634,74 @@ Geometry Nodes from a point cloud, not per-blade meshes.
 
 ---
 
-### 3.5 vegetation (ver=43, kind=6) — 3,316 files
+### 3.5 light_glows (ver=43, kind=6) — 3,316 files
 
-Similar prolog to grass, but **with f32 triplets not just packed bytes**:
+**Engine class:** `proceduralGeometry::CProceduralLightGlows` (xex RTTI
+table, `docs/xex-walk/04-rtti-classes.txt:314`). Earlier sessions
+labeled this variant `vegetation` based on the `(1000, 1000)` scale
+pair and `ver=43` header looking foliage-shaped; that was a misnomer —
+the file content is **light entity data, not foliage**. All 3,316
+Colorado entries have `Glow_*` descriptors. Real foliage is the
+`grass` variant (engine class `CProceduralVegetation`).
+
+**Status (2026-05-03):** Body shape decoded against samples; per-record
+field semantics inferred but not yet wired into an extractor.
+
+#### 3.5.1 Two descriptor formats
+
+Same A/B split as the crowd variant (§3.6.1 / §3.6.2):
+
+| Format | Descriptor offset | Count | Tag prefix                            |
+|:-------|:-----------------:|------:|:--------------------------------------|
+| A      | 0x60              | 2,435 | `Glow_WorldStaticLightGlows_NNNN`     |
+| B      | 0x98              |   881 | `Glow_Gameplay_<EVENT>_L_NN`          |
+
+Format B reserves `0x60..0x97` for runtime section state (zero-padded
+on disk, with a short tag like `FR44_L` mid-block) and pushes the full
+descriptor to 0x98.
+
+#### 3.5.2 Per-record layout (60 bytes, both formats)
+
+Records start at file offset `0xb0` (Format A — single-instance file
+also fits this) or `0x100` (Format B). Stride is 60 bytes; record count
+is at body+0x70 (file 0xa4) preceded by a `0xffffffff` sentinel at
+0xa0:
 
 ```
-0x60  C-string  "Glow_WorldStaticLightGlows_1309\0"   (also "ANIM_TREE_*", "TREE_*" in other samples)
-0x80  4 bytes   0x98cfd109                           (hash? pointer?)
-0x84  4 bytes   0xaccfd109                           (hash)
-0x88  u32 BE    1                                    instance count
-…
-0xac  3×f32 BE  instance world position  = (7592.81, 442.34, -338.57)   ← matches header bbox_min + half_extent
-0xb8  2×f32 BE  (0x80000000, 1.0)                   orientation quaternion component?
-0xc4  u32 BE    0
-0xc8  3×f32 BE  orientation vectors…
++0x00  3×f32 BE   world position  (x, y, z)
++0x0c  3×f32 BE   direction vector
+                   Format A samples (omnidirectional streetlights):
+                     near-zero on all 3 axes
+                   Format B samples (race-checkpoint cones):
+                     normalized vector pointing along the cone axis
++0x18  2×f32 BE   (radius, cone_angle)
+                   Format A: (6.108, 6.2832 = 2π) — 6 m radius, full sphere
+                   Format B: (0.524, 1.5708 = π/2) — 0.5 m radius, π/2 cone
++0x20  3×f32 BE   color RGB
+                   Format A streetlights: (0.1, 0.1, 1.2) — blue-tint
+                   Format B race lights: variable per-record
++0x2c  2×f32 BE   intensity / falloff pair (0.5, 0.5 default)
++0x34  4 bytes    RGBA8 alpha-mask byte + 3-byte per-record terminator
+                   (`ca e8 ad XX` Format A, `0d 0f 14 XX` Format B)
 ```
 
-The sample carries ONE instance; other samples have more. The scale pair
-`(1000, 1000)` on the header is probably the packed-coord range used by
-a subset of vegetation variants (trees with packed positions); the sample
-we have uses unpacked floats.
+The "constant" fields in Format A (radius, cone, color) reflect that
+all `Glow_WorldStaticLightGlows_*` entries within one file share a
+material — the file groups N copies of the same light prefab placed at
+different positions. Format B varies per-record because each gameplay
+checkpoint has its own beam direction.
+
+#### 3.5.3 Asset reference
+
+There is none. Light glows are not meshes — the engine renders them as
+additive billboards / volumetric glow primitives using the per-record
+material parameters in-place. No rmb pool handle, no descriptor-to-mesh
+map.
+
+For Blender export the natural representation is one Blender point /
+empty per record (positions only). If lighting is ever wired in, the
+direction + color + intensity fields are the source of truth. Until
+then, this variant is low-priority compared to actual foliage.
 
 ---
 

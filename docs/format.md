@@ -188,15 +188,22 @@ clamp.
 The `(version, kind)` pair combined with the scale pair selects a different
 internal layout after byte 52. Full-archive survey across 41,587 chunks:
 
-| Variant tag     | `ver` | `kind` | Scale                  | Count  | Contents (inferred)                         |
-| --------------- | :---: | :----: | ---------------------- | -----: | ------------------------------------------- |
-| `terrain`       |  42   |   8    | (-1, -1)               |  2,288 | Terrain tiles, reference a `LightMap_X_Y` sub-block. Y-bbox is the ±100000 placeholder. |
-| `grass`         |  42   |   2    | (-1, -1)               | 11,292 | Grass/foliage instances, string `Grass_Ungrouped_NNNNN_N`. |
-| `crowd`         |  42   |   3    | (60, -1)               |  8,544 | Animated crowd meshes, strings like `crowd_proc_clrd_festival` / `crowd_stages_117`. |
-| `vegetation`    |  43   |   6    | (1000, 1000)           |  3,316 | Trees/shrubs (scale pair is the packed-coord range). |
-| `v42k7`         |  42   |   7    | (100,100)/(150,150)/(300,150)/(300,2500) | 14,122 | Mixed — road surface / buildings / ground details. Multi-scale. |
-| `v44k5`         |  44   |   5    | (-1, -1)               |  1,578 | Unclassified.                                |
-| `landmark_anim` |  44   |   4    | (-1, -1)               |    447 | Big animated landmarks (ferris wheel, etc). Largest files (up to 540 KB uncompressed). |
+| Variant tag     | `ver` | `kind` | Scale                  | Count  | Engine class                  | Contents                                      |
+| --------------- | :---: | :----: | ---------------------- | -----: | ----------------------------- | --------------------------------------------- |
+| `terrain`       |  42   |   8    | (-1, -1)               |  2,288 | `CProceduralLightMaps`        | Terrain tiles, reference a `LightMap_X_Y` sub-block. Y-bbox is the ±100000 placeholder. |
+| `grass`         |  42   |   2    | (-1, -1)               | 11,292 | `CProceduralVegetation`       | Foliage scatter (grass tufts AND tree/shrub instances), string `Grass_Ungrouped_NNNNN_N`. The engine's actual "vegetation" class. |
+| `crowd`         |  42   |   3    | (60, -1)               |  8,544 | `CProceduralCharacters`       | Animated crowd + a few inanimate prop loops, strings like `crowd_proc_clrd_festival` / `crowd_stages_117`. |
+| `light_glows`   |  43   |   6    | (1000, 1000)           |  3,316 | `CProceduralLightGlows`       | **Light entity data** — position + direction + cone + color + intensity. Was misnamed `vegetation` until 2026-05-03. Strings like `Glow_WorldStaticLightGlows_NNNN`. |
+| `v42k7`         |  42   |   7    | (100,100)/(150,150)/(300,150)/(300,2500) | 14,122 | `CProceduralModels` | Per-section instance groups referencing rmb pool entries; or proc-inline placements. |
+| `v44k5`         |  44   |   5    | (-1, -1)               |  1,578 | (likely `CProceduralPoints`)  | Procedural FX emitters (`anim_proc_clrd_fx_*`). |
+| `landmark_anim` |  44   |   4    | (-1, -1)               |    447 | `CProceduralAnimatedObject`   | Festival rides + autoshow rigs (Ferris wheel, etc). Largest files (up to 540 KB uncompressed). |
+
+Engine class names confirmed from xex RTTI dump
+(`docs/xex-walk/04-rtti-classes.txt`, namespace
+`proceduralGeometry::CProcedural*`). Use them — the literal file
+`(ver, kind)` and tag-prefix can mislead (e.g. `(43, 6)` was historically
+labeled `vegetation` based on tag-prefix guessing; it's actually light
+data per RTTI).
 
 Per-variant vertex/index/material decode is **in progress** — currently only
 the shared header is parsed (`tools/pgeo.py`). Planned approach:
@@ -206,7 +213,8 @@ the shared header is parsed (`tools/pgeo.py`). Planned approach:
 - Triangle lists use `u16 BE` indices; index buffers terminate on `0xFFFF`
   strip restarts in many engines of this era.
 - The `scale` pair likely rescales packed vertex coords into world units; e.g.
-  vegetation's `(1000, 1000)` pair is the [0, 1000]³ packed-coord cube.
+  the `light_glows` variant's `(1000, 1000)` pair is the [0, 1000]³
+  packed-coord cube used by some sub-format.
 
 Start with `landmark_anim` (few files, lots of data) or `terrain` (well-bounded
 grid + visible LightMap header) — both have clearer structure than the denser
