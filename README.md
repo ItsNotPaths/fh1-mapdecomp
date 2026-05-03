@@ -421,7 +421,13 @@ exhaustively ruled out:
 - `Colorado_00.hex` (HEXY) for placements
 - `Colorado_track_00.col` (index only; pool built at runtime)
 - `colorado.owr` / `.oww` / `.crowd` (sentinels)
-- `*.pvsz`, `Colorado_00.pvs`, `PVSZLookup_00.dat` (visibility tree, not placements)
+<!-- 2026-05-03: `Colorado_00.pvs` + `*.pvsz` were originally classified as a
+     visibility tree based on a partial probe. They are actually the engine's
+     authored placement table — the single biggest source of correctly-positioned
+     world geometry. Decoded by `pvs.py` (port of the Doliman100 / austinbaccus
+     FH1 fork of the Forza-X360-IO Blender addon) and surfaced via
+     `fh1-mapdecomp pvs-inst`. See `docs/pvs-format.md`. -->
+- `PVSZLookup_00.dat` (zone-hash → slot lookup; runtime helper, not needed for static placement)
 - bundle entries in bin.zip
 - sub-blob marker walks in xex
 

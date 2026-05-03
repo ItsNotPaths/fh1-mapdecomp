@@ -32,13 +32,10 @@ from fh1_mapdecomp.collobjs import (
     extract_collobjs, summarise as collobjs_summarise,
 )
 from fh1_mapdecomp.lzx import DecompressionError
-from fh1_mapdecomp.rmb_world import (
-    extract_rmb_world, summarise as rmb_world_summarise,
+from fh1_mapdecomp.pvs_inst import (
+    extract_pvs_instances, summarise as pvs_inst_summarise,
 )
 from fh1_mapdecomp.terrain_hi import extract_terrain_hi, summarise as terrain_hi_summarise
-from fh1_mapdecomp.v42k7_inst import (
-    extract_v42k7_instances, summarise as v42k7_inst_summarise,
-)
 from fh1_mapdecomp.world import build_placement, summarise, write_placement
 
 
@@ -134,75 +131,6 @@ def cmd_terrain_hi(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_rmb_world(args: argparse.Namespace) -> int:
-    zip_path = resolve_binzip(Path(args.source))
-    out_dir = Path(args.output) / "rmb_world"
-    doc = extract_rmb_world(
-        zip_path, out_dir,
-        policy=getattr(args, "policy", "freeroam"),
-        include_all_lods=getattr(args, "all_lods", False),
-        progress=_progress("rmb_world"),
-    )
-    rmb_world_summarise(doc)
-    print(f"wrote {out_dir}/index.json", file=sys.stderr)
-    return 0
-
-
-def cmd_v42k7_inst(args: argparse.Namespace) -> int:
-    zip_path = resolve_binzip(Path(args.source))
-    out_dir = Path(args.output) / "v42k7_inst"
-
-    # Cross-source dedup: rmb_world owns landmark/persistent placements
-    # via its wrapper-rmb path (Smelter, cables, MT_Area decals,
-    # Pavementcaps, Object NNN, etc.). v42k7 references those same
-    # handles as streaming/visibility hints — emitting both produces
-    # rings of duplicates around chunks that load each landmark.
-    # If rmb_world has already been extracted, load its tag set and
-    # exclude any v42k7 blob whose stripped tag matches. Also load
-    # the per-family LOD floor so the LOD filter is consistent across
-    # pipelines (some families have only LOD01 in the pool, no LOD00).
-    exclude_tag_keys: set[str] | None = None
-    family_min_lod: dict | None = None
-    rmb_world_index = Path(args.output) / "rmb_world" / "index.json"
-    if rmb_world_index.exists():
-        try:
-            from fh1_mapdecomp.v42k7_inst import _strip_lod_suffix
-            rw = json.loads(rmb_world_index.read_text())
-            # Include both ``tag`` (the per-section asset name like
-            # ``PLA_SMELTER_BLDG_BlastFurnaceLow_001``) and ``wrapper_tag``
-            # (the source rmb's name like
-            # ``PLA_SMELTER_BLDG_BlastFurnaceLow_LOD00``). v42k7 handles
-            # carry the wrapper-tag form, so without including it the
-            # cross-source dedup misses the smelter and similar landmarks.
-            exclude_tag_keys = set()
-            for b in rw.get("blobs", []):
-                exclude_tag_keys.add(_strip_lod_suffix(b.get("tag", "")))
-                w = b.get("wrapper_tag", "")
-                if w and w != b.get("tag"):
-                    exclude_tag_keys.add(_strip_lod_suffix(w))
-            exclude_tag_keys.discard("")
-            family_min_lod = rw.get("family_min_lod")
-            print(f"[v42k7_inst] dedup vs rmb_world: "
-                  f"{len(exclude_tag_keys)} tag keys, "
-                  f"family_min_lod: {len(family_min_lod or {})} families",
-                  file=sys.stderr)
-        except Exception as ex:
-            print(f"[v42k7_inst] could not load rmb_world tags ({ex}); "
-                  f"running without dedup", file=sys.stderr)
-
-    doc = extract_v42k7_instances(
-        zip_path, out_dir,
-        include_all_lods=getattr(args, "all_lods", False),
-        policy=getattr(args, "policy", "freeroam"),
-        progress=_progress("v42k7_inst"),
-        exclude_tag_keys=exclude_tag_keys,
-        family_min_lod=family_min_lod,
-    )
-    v42k7_inst_summarise(doc)
-    print(f"wrote {out_dir}/index.json", file=sys.stderr)
-    return 0
-
-
 def _resolve_ribbon_dir(source: Path, explicit: str | None) -> Path:
     """Locate the Ribbon_00 dir. Sits next to bin.zip in the extracted layout."""
     if explicit:
@@ -220,96 +148,17 @@ def _resolve_ribbon_dir(source: Path, explicit: str | None) -> Path:
     )
 
 
-def cmd_barriers_inst(args: argparse.Namespace) -> int:
-    """Filter an existing v42k7_inst output to a barriers-only subset.
-
-    The v42k7 within-section RENDER mask is known good for barrier-tagged
-    sections (see docs/world-architecture.md §5.2 and the
-    project_v42k7_within_section_selector_solved memory). The wider v42k7
-    output has unsolved slot-picker indirection for buildings, so we
-    can't ship that as-is — but barriers, which DO place correctly,
-    can be peeled off into their own collection.
-    """
-    import re
-    import shutil
-
-    out_dir = Path(args.output)
-    in_dir = out_dir / "v42k7_inst"
-    bar_dir = out_dir / "v42k7_barriers"
-    in_index = in_dir / "index.json"
-    if not in_index.exists():
-        print(f"[barriers-inst] no source: {in_index} "
-              f"(run `fh1-mapdecomp v42k7-inst` first)", file=sys.stderr)
-        return 2
-
-    # Anchored full-tag patterns. Each must match the tag from start; we
-    # explicitly drop _LOD01/_LOD02/_LOD03/MIDDIST forms because those
-    # are streaming impostors the engine paints across many chunk slot
-    # lists as visibility hints — not real placements (placing them
-    # produces the "scattered under-ground Barrier_023_Armco_LOD01"
-    # leak). LOD00 + NOLOD are the only render-correct variants.
-    keep_patterns = (
-        r"OBJ_BarrierBrand_LOD00(?:_|$)",
-        r"Barrier_\d+_Armco_LOD00(?:_|$)",
-        r"Barrier_\d+_Steel_LOD00(?:_|$)",
-        r"BarrierMetal_LOD00(?:_|$)",
-        r"Maintown_WallSmall_.*Railings_\d+M_NOLOD$",
-        r"Maintown_WallSmall_.*EndPiece_NOLOD$",
-        r"OBJ_CLRD_FenceF_LOD00(?:_|$)",
-        r"O_CO_CLRD_FenceF$",
-        r"CO_CLRD_FenceF$",
+def cmd_pvs_inst(args: argparse.Namespace) -> int:
+    zip_path = resolve_binzip(Path(args.source))
+    ribbon_dir = _resolve_ribbon_dir(Path(args.source), args.ribbon_dir)
+    out_dir = Path(args.output) / "pvs_inst"
+    doc = extract_pvs_instances(
+        zip_path, ribbon_dir, out_dir,
+        policy=args.policy,
+        progress=_progress("pvs_inst"),
     )
-    keep_re = re.compile("|".join(f"(?:^{p})" for p in keep_patterns))
-
-    doc = json.loads(in_index.read_text())
-    src_blobs = doc["blobs"]
-    keep_blobs = [b for b in src_blobs if keep_re.match(b.get("tag", ""))]
-    keep_handles = {b["handle"] for b in keep_blobs}
-    if not keep_blobs:
-        print("[barriers-inst] no barrier-tagged blobs found in source",
-              file=sys.stderr)
-        return 1
-
-    out_chunks: list[dict] = []
-    inst_total = 0
-    for c in doc["chunks"]:
-        new_secs = []
-        for s in c["sections"]:
-            kept = [h for h in s["handles"] if h in keep_handles]
-            if not kept:
-                continue
-            sec = {"handles": kept, "instances": s["instances"]}
-            if "u0" in s:
-                sec["u0"] = s["u0"]
-            new_secs.append(sec)
-            inst_total += len(s["instances"])
-        if new_secs:
-            out_chunks.append({
-                "filename": c["filename"], "name": c["name"],
-                "origin": c["origin"], "sections": new_secs,
-            })
-
-    bar_dir.mkdir(parents=True, exist_ok=True)
-    (bar_dir / "blobs").mkdir(exist_ok=True)
-    for b in keep_blobs:
-        src = in_dir / b["npz"]
-        if src.exists():
-            shutil.copyfile(src, bar_dir / b["npz"])
-
-    out_doc = {
-        "source_index": str(in_index),
-        "policy": "barriers_only",
-        "keep_patterns": list(keep_patterns),
-        "rmb_pool_size": doc.get("rmb_pool_size"),
-        "chunk_count": len(out_chunks),
-        "blob_count": len(keep_blobs),
-        "instances_after_filter": inst_total,
-        "blobs": keep_blobs,
-        "chunks": out_chunks,
-    }
-    (bar_dir / "index.json").write_text(json.dumps(out_doc))
-    print(f"[barriers-inst] {len(keep_blobs)} blobs, {len(out_chunks)} chunks, "
-          f"{inst_total} instances → {bar_dir}/index.json", file=sys.stderr)
+    pvs_inst_summarise(doc)
+    print(f"wrote {out_dir}/index.json", file=sys.stderr)
     return 0
 
 
@@ -344,18 +193,12 @@ def cmd_blender(args: argparse.Namespace) -> int:
     terrain_hi_dir: Path | None = out_dir / "terrain_hi"
     if getattr(args, "no_terrain_hi", False) or not (terrain_hi_dir / "index.json").exists():
         terrain_hi_dir = None
-    v42k7_inst_dir: Path | None = out_dir / "v42k7_inst"
-    if getattr(args, "no_v42k7_inst", False) or not (v42k7_inst_dir / "index.json").exists():
-        v42k7_inst_dir = None
-    v42k7_barriers_dir: Path | None = out_dir / "v42k7_barriers"
-    if getattr(args, "no_v42k7_barriers", False) or not (v42k7_barriers_dir / "index.json").exists():
-        v42k7_barriers_dir = None
     collobjs_dir: Path | None = out_dir / "collobjs_inst"
     if getattr(args, "no_collobjs", False) or not (collobjs_dir / "index.json").exists():
         collobjs_dir = None
-    rmb_world_dir: Path | None = out_dir / "rmb_world"
-    if getattr(args, "no_rmb_world", False) or not (rmb_world_dir / "index.json").exists():
-        rmb_world_dir = None
+    pvs_inst_dir: Path | None = out_dir / "pvs_inst"
+    if getattr(args, "no_pvs_inst", False) or not (pvs_inst_dir / "index.json").exists():
+        pvs_inst_dir = None
     out_blend = out_dir / "blender" / "colorado.blend"
     out_blend.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -370,10 +213,8 @@ def cmd_blender(args: argparse.Namespace) -> int:
         out_blend=out_blend,
         meshes_dir=meshes_dir,
         terrain_hi_dir=terrain_hi_dir,
-        v42k7_inst_dir=v42k7_inst_dir,
-        v42k7_barriers_dir=v42k7_barriers_dir,
         collobjs_dir=collobjs_dir,
-        rmb_world_dir=rmb_world_dir,
+        pvs_inst_dir=pvs_inst_dir,
         limit=args.limit or 0,
         variants=args.variants or "",
         no_cubes=args.no_cubes,
@@ -429,33 +270,23 @@ def cmd_all(args: argparse.Namespace) -> int:
         if rc != 0 and not args.keep_going:
             return rc
 
-    # rmb_world runs before v42k7_inst so its blob tags are available
-    # for cross-source dedup. Without this ordering, v42k7_inst emits
-    # ~30k duplicate instances (smelters, cables, decals, road segments)
-    # that are already placed by rmb_world's wrapper-rmb path.
-    if not args.no_rmb_world:
-        rmb_world_args = argparse.Namespace(
+    # PVS is the authoritative authored-placement table for "draw this
+    # mesh at these world transforms". CollObjs.xml is the static-prop
+    # placement table — complementary to PVS (collision props like
+    # OBJ_BarrierBrand have PVS pos = (0,0,0) and the real transforms
+    # live in CollObjs).
+    if not args.no_pvs_inst:
+        pvs_args = argparse.Namespace(
             source=args.source, output=str(out_dir),
-            policy=getattr(args, "rmb_world_policy", "freeroam"),
-            all_lods=False,
+            ribbon_dir=getattr(args, "ribbon_dir", None),
+            policy=getattr(args, "pvs_policy", "freeroam"),
         )
-        rc = cmd_rmb_world(rmb_world_args)
+        try:
+            rc = cmd_pvs_inst(pvs_args)
+        except FileNotFoundError as ex:
+            print(f"[pvs_inst] skipping: {ex}", file=sys.stderr)
+            rc = 0
         if rc != 0 and not args.keep_going:
-            return rc
-
-    if not args.no_v42k7_inst:
-        v42k7_args = argparse.Namespace(
-            source=args.source, output=str(out_dir),
-            policy=getattr(args, "v42k7_policy", "freeroam"),
-        )
-        rc = cmd_v42k7_inst(v42k7_args)
-        if rc != 0 and not args.keep_going:
-            return rc
-
-    if not args.no_v42k7_barriers and not args.no_v42k7_inst:
-        bar_args = argparse.Namespace(output=str(out_dir))
-        rc = cmd_barriers_inst(bar_args)
-        if rc not in (0, 1) and not args.keep_going:
             return rc
 
     if not args.no_collobjs:
@@ -474,6 +305,9 @@ def cmd_all(args: argparse.Namespace) -> int:
         if rc != 0 and not args.keep_going:
             return rc
 
+    # TODO: vegetation extractor goes here when implemented (PGEO grass
+    # / vegetation / crowd variants — currently undecoded bodies).
+
     if args.no_blender:
         return rc
 
@@ -485,10 +319,8 @@ def cmd_all(args: argparse.Namespace) -> int:
         no_cubes=False,
         no_meshes=args.no_meshes,
         no_terrain_hi=args.no_terrain_hi,
-        no_v42k7_inst=args.no_v42k7_inst,
-        no_v42k7_barriers=getattr(args, "no_v42k7_barriers", False),
         no_collobjs=args.no_collobjs,
-        no_rmb_world=args.no_rmb_world,
+        no_pvs_inst=args.no_pvs_inst,
     )
     rc = cmd_blender(blender_args)
     if rc != 0 and not args.keep_going:
@@ -550,32 +382,16 @@ def build_parser() -> argparse.ArgumentParser:
                     help="include MIDDIST (mid-distance) tiles (default: skip)")
     tp.set_defaults(func=cmd_terrain_hi)
 
-    rwp = sub.add_parser("rmb-world",
-                         help="extract world-placed rmb blobs at their header centroid")
-    _add_source(rwp, output=True)
-    rwp.add_argument("--policy", choices=("freeroam", "all"), default="freeroam",
-                     help="freeroam drops race/festival dressing; all keeps every "
-                          "world-placed blob (TERR_ always dropped — owned by terrain_hi)")
-    rwp.add_argument("--all-lods", action="store_true",
-                     help="include LOD01/LOD02/MIDDIST duplicates (default: LOD00 + no-LOD only)")
-    rwp.set_defaults(func=cmd_rmb_world)
-
-    vp = sub.add_parser("v42k7-inst",
-                        help="extract v42k7 → rmb instance meshes")
-    _add_source(vp, output=True)
-    vp.add_argument("--all-lods", action="store_true",
-                    help="include LOD01/LOD02/MIDDIST blobs (default: LOD0 only)")
-    vp.add_argument("--policy", choices=("freeroam", "all"), default="freeroam",
-                    help="freeroam drops race/festival dressing + tags owned by "
-                         "CollObjs/GameObjs; all keeps every section")
-    vp.set_defaults(func=cmd_v42k7_inst)
-
-    bip = sub.add_parser("barriers-inst",
-                         help="filter v42k7_inst to roadside-barrier blobs only")
-    bip.add_argument("--output", required=True,
-                     help="output directory (same as used for v42k7-inst); "
-                          "reads <output>/v42k7_inst/, writes <output>/v42k7_barriers/")
-    bip.set_defaults(func=cmd_barriers_inst)
+    pip = sub.add_parser("pvs-inst",
+                         help="extract PVS+PVSZ → rmb instance meshes "
+                              "(authoritative authored placements)")
+    _add_source(pip, output=True)
+    pip.add_argument("--ribbon-dir",
+                     help="path to Ribbon_NN/ (auto-detected next to bin.zip if omitted)")
+    pip.add_argument("--policy", choices=("freeroam", "all"), default="freeroam",
+                     help="freeroam drops race-event dressing (Festival_Area01..04, "
+                          "Ambulance, Countdown, PROC_cars); all keeps every placement")
+    pip.set_defaults(func=cmd_pvs_inst)
 
     cop = sub.add_parser("collobjs-inst",
                          help="extract Ribbon_00/CollObjs.xml → rmb instance meshes")
@@ -603,14 +419,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="ignore out/meshes/ cache, force bbox-cube-only scene")
     bp.add_argument("--no-terrain-hi", action="store_true",
                     help="skip the rmb.bin TERR mesh collection")
-    bp.add_argument("--no-v42k7-inst", action="store_true",
-                    help="skip the v42k7 → rmb instance collection")
-    bp.add_argument("--no-v42k7-barriers", action="store_true",
-                    help="skip the barriers-only v42k7 collection")
     bp.add_argument("--no-collobjs", action="store_true",
                     help="skip the CollObjs.xml → rmb instance collection")
-    bp.add_argument("--no-rmb-world", action="store_true",
-                    help="skip the rmb world-placed collection")
+    bp.add_argument("--no-pvs-inst", action="store_true",
+                    help="skip the PVS+PVSZ instance collection")
     bp.set_defaults(func=cmd_blender)
 
     rp = sub.add_parser("render-topdown", help="render orthographic top-down PNG of colorado.blend")
@@ -627,17 +439,15 @@ def build_parser() -> argparse.ArgumentParser:
                     help="skip per-chunk mesh decoding and cache")
     ap.add_argument("--no-terrain-hi", action="store_true",
                     help="skip hi-detail TERR extraction from rmb.bin")
-    ap.add_argument("--no-v42k7-inst", action="store_true",
-                    help="skip v42k7 → rmb instance extraction")
-    ap.add_argument("--no-v42k7-barriers", action="store_true",
-                    help="skip barriers-only v42k7 filter pass")
-    ap.add_argument("--v42k7-policy", choices=("freeroam", "all"),
+    ap.add_argument("--no-pvs-inst", action="store_true",
+                    help="skip PVS+PVSZ → rmb instance extraction")
+    ap.add_argument("--pvs-policy", choices=("freeroam", "all"),
                     default="freeroam",
-                    help="v42k7 filter policy (default: freeroam)")
+                    help="PVS filter policy (default: freeroam)")
     ap.add_argument("--no-collobjs", action="store_true",
                     help="skip CollObjs.xml → rmb instance extraction")
     ap.add_argument("--ribbon-dir",
-                    help="path to Ribbon_00/ for CollObjs (auto-detected if omitted)")
+                    help="path to Ribbon_00/ for PVS+CollObjs (auto-detected if omitted)")
     ap.add_argument("--collobjs-policy", choices=("freeroam", "all"),
                     default="freeroam",
                     help="CollObjs filter policy (default: freeroam)")
@@ -645,11 +455,6 @@ def build_parser() -> argparse.ArgumentParser:
                     help="enable CollObjs normalised-key fallback "
                          "(may place wrong meshes for bases missing from "
                          "the rmb pool)")
-    ap.add_argument("--no-rmb-world", action="store_true",
-                    help="skip rmb world-placed blob extraction")
-    ap.add_argument("--rmb-world-policy", choices=("freeroam", "all"),
-                    default="freeroam",
-                    help="rmb-world filter policy (default: freeroam)")
     ap.add_argument("--no-blender", action="store_true",
                     help="stop after placement JSON; do not invoke Blender")
     ap.add_argument("--render", action="store_true",

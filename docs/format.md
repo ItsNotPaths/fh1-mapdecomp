@@ -83,7 +83,7 @@ with zipfile.ZipFile("bin.zip") as z:
 | `.fiz`       |    16,934 | `fiz ` magic, world-coord header. Per-tile foliage density (probably). |
 | `.sh`        |     4,768 | Spherical-harmonics lighting tiles. Filename encodes world coords (`Colorado__shdata__n2550x_n1645z.sh`; n=−, p=+). |
 | `.soundscape`|     4,675 |                                                                      |
-| `.pvsz`      |     3,502 | Per-zone PVS data. Indexed through PVSZLookup.                       |
+| `.pvsz`      |     3,502 | Per-zone authored placement transforms. Decoded — see `pvs-format.md`. |
 | `.bundle`    |       429 | Compound bundles keyed by `0x1NNNNNNN`.                              |
 | `.fxobj`     |       173 | Shaders (`shaders/track/ADD_DIFF_OPAC_RGBA.fxobj`).                  |
 | `.fsb`       |        66 | FMOD sound banks.                                                    |
@@ -375,7 +375,7 @@ Render a top-down PNG of the scene:
   descriptor, not a texture).
 - `.bix` format — probable texture blobs but no confirmed magic or layout.
 - `.bundle` — compound asset bundles; structure unknown.
-- `.pvs` / `.pvsz` internals — magic `FPVS`; byte layout unknown.
+- ~~`.pvs` / `.pvsz` internals — magic `FPVS`; byte layout unknown.~~ Decoded 2026-05-03 (port of Doliman100 / austinbaccus FH1 fork). See `pvs-format.md`.
 - Spherical-harmonics payload inside `.sh` files.
 
 **Explicitly out of scope**

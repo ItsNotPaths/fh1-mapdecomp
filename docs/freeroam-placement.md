@@ -17,7 +17,7 @@ the entire map, both free-roam and race/festival content.
 | `FilenameMap_00.dat`| 1.0 M | binary string table — every asset this ribbon references (pgeo/rmb.bin/bix/pvsz/soundscape). 40k+ strings with u32 BE offset header. Not decoded yet; likely the master ribbon-manifest. |
 | `CollObjs.xml` mirror types | — | All `CollObjs` entries resolve 100% to rmb.bin blob tags (verified 758/758). |
 | `Colorado_00.hex`   |  34 K | HEXY grid (per existing `fh1_mapdecomp.world.build_placement`). |
-| `Colorado_00.pvs`   | 3.2 M | PVS (potentially visible sets).                    |
+| `Colorado_00.pvs`   | 3.2 M | **Authored placement table** (decoded 2026-05-03). 14,560 models, 62,173 instance slots; per-instance transform from matching `__R##Z#####.pvsz`. See `pvs-format.md`. |
 | `Colorado_track_00.col` | 76 K | track collision geometry.                       |
 | `GameObjs.xml`, `TrackRoute*.xml`, etc. | — | race routes and gameplay metadata. |
 

@@ -39,18 +39,17 @@ def parse_args():
     ap.add_argument("--meshes", default="", help="directory with decoded per-chunk .npz meshes")
     ap.add_argument("--terrain-hi", default="",
                     help="directory with rmb.bin TERR per-tile .npz + index.json")
-    ap.add_argument("--v42k7-inst", default="",
-                    help="directory with v42k7 instance per-blob .npz + index.json")
-    ap.add_argument("--v42k7-barriers", default="",
-                    help="barriers-only filtered v42k7_inst directory (lays "
-                         "alongside --v42k7-inst in its own collection)")
     ap.add_argument("--collobjs", default="",
                     help="directory with CollObjs.xml instance per-blob .npz + index.json")
-    ap.add_argument("--rmb-world", default="",
-                    help="directory with rmb world-placed per-blob .npz + index.json")
+    ap.add_argument("--pvs-inst", default="",
+                    help="directory with PVS+PVSZ instance per-blob .npz + index.json "
+                         "(authored placements — the engine's own table)")
     ap.add_argument("--limit", type=int, default=0, help="cap chunks (0=all)")
     ap.add_argument("--variants", default="", help="comma-separated variant filter")
     ap.add_argument("--no-cubes", action="store_true", help="use empties instead of bbox-cube meshes")
+    ap.add_argument("--keep-bbox-cubes", action="store_true",
+                    help="emit bbox cubes for grass/vegetation/crowd/landmark_anim "
+                         "PGEO chunks (off by default — PVS covers their placements)")
     return ap.parse_args(argv)
 
 
@@ -60,11 +59,8 @@ VARIANT_COLORS = {
     "grass":         (0.30, 0.70, 0.20, 1.0),
     "vegetation":    (0.15, 0.55, 0.45, 1.0),
     "crowd":         (0.85, 0.25, 0.25, 1.0),
-    "v42k7":         (0.25, 0.35, 0.80, 1.0),
-    "v42k7_inst":    (0.40, 0.50, 0.85, 1.0),
     "collobjs":      (0.90, 0.75, 0.35, 1.0),
-    "rmb_world":     (0.55, 0.70, 0.45, 1.0),
-    "v44k5":         (0.55, 0.25, 0.80, 1.0),
+    "pvs_inst":      (0.85, 0.55, 0.85, 1.0),
     "landmark_anim": (1.00, 0.85, 0.15, 1.0),
 }
 
@@ -208,10 +204,12 @@ def _make_v42k7_instance_gn(name, src_obj):
 def make_v42k7_inst_mesh_data(name, npz_path):
     """Build a Blender mesh data block from a v42k7 instance .npz.
 
-    Vertices are world-space game coords (Y-up); converted to Blender
-    Z-up via ``(x, y, z) -> (x, -z, y)``. Returns a ``bpy.types.Mesh``
-    that callers can wrap in one or more objects (= true instancing).
-    Returns ``None`` for face-less blobs — they'd be invisible.
+    Vertices are local-space (or world-space for world-authored rmbs)
+    game coords (Y-up); converted to Blender Z-up via the vertex basis
+    ``(x, y, z) -> (x, -z, y)``. PVS placement translations use a
+    different basis in ``_import_inst_dir`` because the engine's
+    placement convention differs from its vertex convention. Returns
+    ``None`` for face-less blobs.
     """
     import numpy as np
     with np.load(str(npz_path)) as z:
@@ -319,8 +317,17 @@ def _import_inst_dir(
         f"[import_world] {label}: {len(blobs)} blobs, {len(chunks_v)} chunks",
         file=sys.stderr,
     )
-    # Basis change game(Y-up) -> blender(Z-up): (x,y,z) -> (x,-z,y).
-    B = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]], dtype=np.float32)
+    # Engine encodes PVS pos.Z with the opposite sign convention from
+    # rmb vertex Z (verified by user-supplied coords: models at PVS
+    # Z=-204 align with world-authored mesh at vertex Z=+211 → engine
+    # applies a Z-negate when placing). A second uniform negate-Y
+    # mirror across Blender's X axis matches the user's expected
+    # orientation for the whole scene.
+    #
+    #   B_POS  = [[1,0,0],[0,0, 1],[0,1,0]]  → (X, Y, Z) -> (X,  Z, Y)
+    #   B_VERT = [[1,0,0],[0,0,-1],[0,1,0]]  → (X, Y, Z) -> (X, -Z, Y)
+    B_POS = np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0]], dtype=np.float32)
+    B = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]], dtype=np.float32)
     B_T = B.T
 
     per_handle_pos: dict = {}
@@ -376,7 +383,7 @@ def _import_inst_dir(
 
         positions = np.asarray(positions_py, dtype=np.float32)
         rotations = np.asarray(per_handle_rot[h], dtype=np.float32)
-        positions_bl = positions @ B_T
+        positions_bl = positions @ B_POS.T
         rot_bl = np.einsum("ij,kjl,lm->kim", B, rotations, B_T)
 
         pc_mesh = bpy.data.meshes.new(f"{label}_pc_{h:06d}")
@@ -389,7 +396,13 @@ def _import_inst_dir(
         eulers = np.empty((len(rot_bl), 3), dtype=np.float32)
         for k in range(len(rot_bl)):
             M = Matrix(tuple(tuple(float(v) for v in row) for row in rot_bl[k]))
-            eulers[k] = tuple(M.to_euler("XYZ"))
+            e = M.to_euler("XYZ")
+            # Negate Z (yaw): the X-axis mirror baked into B_POS reflects
+            # a coordinate axis, which flips the rotation direction
+            # around the vertical axis. X/Y rotations look correct
+            # because almost all PVS instances are pure-yaw (no pitch
+            # or roll) so the same flip on those isn't visible.
+            eulers[k] = (e[0], e[1], -e[2])
         attr_rot = pc_mesh.attributes.new(
             name="rot_euler", type="FLOAT_VECTOR", domain="POINT",
         )
@@ -448,87 +461,6 @@ def _build_mesh_from_arrays(name, verts_xyz, tris, mat):
     return mesh
 
 
-def _import_rmb_world_dir(rw_dir) -> None:
-    """Load world-placed rmb blobs into the scene.
-
-    Each entry is a unique blob whose vertices are already in world
-    space (the header centroid is the placement and the vertices are
-    authored at that location). One blob = one Blender mesh, placed at
-    origin; the only transform applied is the game Y-up → Blender Z-up
-    basis swap ``(x, y, z) -> (x, -z, y)``.
-    """
-    import numpy as np
-
-    rw_index = rw_dir / "index.json"
-    if not rw_index.exists():
-        print(f"[import_world] rmb_world: no index.json at {rw_index}",
-              file=sys.stderr)
-        return
-    rw_doc = json.loads(rw_index.read_text())
-    blobs = rw_doc["blobs"]
-    print(f"[import_world] rmb_world: {len(blobs)} world-placed blobs",
-          file=sys.stderr)
-    col = get_or_make_collection("fh1_rmb_world")
-    mat = get_or_make_material("rmb_world")
-    col_link = col.objects.link
-    new_mesh = bpy.data.meshes.new
-    new_obj = bpy.data.objects.new
-
-    built = 0
-    total_v = 0
-    total_t = 0
-    for i, b in enumerate(blobs):
-        if i % 5000 == 0:
-            print(f"  rmb_world {i}/{len(blobs)} "
-                  f"(built {built}, verts {total_v})", file=sys.stderr)
-        npz = rw_dir / b["npz"]
-        if not npz.exists():
-            continue
-        try:
-            with np.load(str(npz)) as z:
-                positions = z["positions"]
-                faces = z["faces"]
-        except Exception as ex:
-            print(f"    blob {b['handle']} load failed: {ex}", file=sys.stderr)
-            continue
-        n_v = int(positions.shape[0])
-        n_t = int(faces.shape[0])
-        if n_v == 0 or n_t == 0:
-            continue
-        # Y-up game-space → Z-up Blender: (x, y, z) -> (x, -z, y).
-        verts = np.empty((n_v, 3), dtype=np.float32)
-        verts[:, 0] = positions[:, 0]
-        verts[:, 1] = -positions[:, 2]
-        verts[:, 2] = positions[:, 1]
-        tris = faces.astype(np.int32, copy=False)
-
-        section_idx = int(b.get("section_idx", 0))
-        sect_part = f"_{section_idx:02d}" if section_idx else ""
-        name = f"rmb_world/{b['handle']:06d}{sect_part}_{b['tag']}"
-
-        mesh = new_mesh(name)
-        mesh.vertices.add(n_v)
-        mesh.vertices.foreach_set("co", verts.reshape(-1))
-        mesh.loops.add(n_t * 3)
-        mesh.loops.foreach_set("vertex_index", tris.reshape(-1))
-        mesh.polygons.add(n_t)
-        mesh.polygons.foreach_set("loop_start",
-                                  np.arange(n_t, dtype=np.int32) * 3)
-        mesh.polygons.foreach_set("loop_total",
-                                  np.full(n_t, 3, dtype=np.int32))
-        mesh.update(calc_edges=True)
-        mesh.materials.append(mat)
-        col_link(new_obj(name, mesh))
-        built += 1
-        total_v += n_v
-        total_t += n_t
-    print(
-        f"[import_world] rmb_world: {built} meshes, "
-        f"{total_v} verts, {total_t} triangles",
-        file=sys.stderr,
-    )
-
-
 def main():
     args = parse_args()
     data = json.loads(Path(args.json).read_text())
@@ -536,9 +468,24 @@ def main():
     if args.variants:
         allowed = set(args.variants.split(","))
         chunks = [c for c in chunks if c["variant"] in allowed]
-    # TEMP: terrain export is suppressed while the v42k7 placement is
-    # being debugged; remove when ready to re-enable.
-    chunks = [c for c in chunks if c["variant"] not in ("terrain", "terrain_hi")]
+    # The PGEO placement JSON is mostly bbox-cube scaffolding now —
+    # PVS (`fh1_pvs_inst`), rmb_world, terrain_hi, and the v42k7_inst /
+    # collobjs collections all carry real geometry. The variants below
+    # have no decoded body in this build (or are owned by another
+    # pipeline), so emitting their bboxes just adds green/blue/orange
+    # cube clouds. Pass `--keep-bbox-cubes` to opt them back in for
+    # diagnostic comparison.
+    BBOX_NOISE_VARIANTS = (
+        "terrain", "terrain_hi",     # owned by terrain_hi (real meshes)
+        "grass", "vegetation",       # PGEO bodies undecoded — placeholder
+                                     # for the future vegetation extractor
+        "crowd",                     # crowd PGEO undecoded
+        "v42k7", "v44k5",            # legacy runtime instancing chunks;
+                                     # PVS covers their placement
+        "landmark_anim",             # 447 small ride PGEOs; PVS covers placement
+    )
+    if not getattr(args, "keep_bbox_cubes", False):
+        chunks = [c for c in chunks if c["variant"] not in BBOX_NOISE_VARIANTS]
     if args.limit > 0:
         chunks = chunks[:args.limit]
 
@@ -621,26 +568,18 @@ def main():
                     print(f"    terrain_hi tile {t['tag']} failed: {ex}", file=sys.stderr)
             print(f"[import_world] terrain_hi: {th_hits}/{len(tiles)} tiles meshed", file=sys.stderr)
 
-    # v42k7 → rmb and CollObjs.xml → rmb instance passes share a schema;
-    # the same GN-instance loader handles both. Blob vertices are
-    # LOCAL-space; each unique blob is imported once and reused via
-    # Geometry Nodes "Instance on Points".
-    if args.v42k7_inst:
-        _import_inst_dir(Path(args.v42k7_inst),
-                         label="v42k7_inst",
-                         collection="fh1_v42k7_inst",
-                         material_variant="v42k7_inst",
-                         src_prefix="v42k7_src",
-                         inst_prefix="v42k7_inst",
-                         blob_prefix="v42k7_blob")
-    if args.v42k7_barriers:
-        _import_inst_dir(Path(args.v42k7_barriers),
-                         label="v42k7_barriers",
-                         collection="fh1_v42k7_barriers",
-                         material_variant="collobjs",
-                         src_prefix="barriers_src",
-                         inst_prefix="barriers",
-                         blob_prefix="barriers_blob")
+    # PVS = authoritative authored-placement table (most freeroam
+    # geometry). CollObjs.xml = static-collision-prop placement table
+    # — complementary to PVS (e.g. OBJ_BarrierBrand has PVS pos=(0,0,0)
+    # and the real per-barrier transforms live in CollObjs).
+    if args.pvs_inst:
+        _import_inst_dir(Path(args.pvs_inst),
+                         label="pvs_inst",
+                         collection="fh1_pvs_inst",
+                         material_variant="pvs_inst",
+                         src_prefix="pvs_src",
+                         inst_prefix="pvs_inst",
+                         blob_prefix="pvs_blob")
     if args.collobjs:
         _import_inst_dir(Path(args.collobjs),
                          label="collobjs",
@@ -649,8 +588,6 @@ def main():
                          src_prefix="collobjs_src",
                          inst_prefix="collobjs",
                          blob_prefix="collobjs_blob")
-    if args.rmb_world:
-        _import_rmb_world_dir(Path(args.rmb_world))
 
     # Restore depsgraph handlers and trigger a single update so the
     # scene is consistent before we save / render.

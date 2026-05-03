@@ -260,7 +260,8 @@ The position table is the placement list. Its transforms are world-space.
 | `Colorado_track_00.col` | ★ Closed | Index only; pool built at runtime |
 | `colorado.owr` / `.oww` | ★ Closed | 12 / 32 byte sentinels |
 | `Colorado_track_00.crowd` | ★ Closed | 12 byte stub |
-| `Colorado_00.pvs` / `PVSZLookup_00.dat` / `*.pvsz` | ★ Closed | Visibility tree |
+| `Colorado_00.pvs` / `*.pvsz` | ⚠️ **Re-opened 2026-05-03** | These are the engine's authored placement table, not a visibility tree. Decoded by `pvs.py` (port of Doliman100/austinbaccus FH1 fork). See `pvs-format.md`. |
+| `PVSZLookup_00.dat` | ★ Closed | Runtime zone-hash → slot lookup; not needed for static placement now that `pvs.py` decodes the table directly. |
 | `ParticleEmitters.xml` | ★ Closed | Emission points, not anchors |
 | `PostProcessingZones_Safe.xml` | ★ Closed | Post-FX bounds |
 | `GameObjs.xml` | ★ Closed | Barn finds, gas stations, race spawns |

@@ -89,10 +89,8 @@ def run_import(
     out_blend: Path,
     meshes_dir: Optional[Path] = None,
     terrain_hi_dir: Optional[Path] = None,
-    v42k7_inst_dir: Optional[Path] = None,
-    v42k7_barriers_dir: Optional[Path] = None,
     collobjs_dir: Optional[Path] = None,
-    rmb_world_dir: Optional[Path] = None,
+    pvs_inst_dir: Optional[Path] = None,
     limit: int = 0,
     variants: str = "",
     no_cubes: bool = False,
@@ -103,14 +101,10 @@ def run_import(
         args += ["--meshes", str(meshes_dir)]
     if terrain_hi_dir is not None:
         args += ["--terrain-hi", str(terrain_hi_dir)]
-    if v42k7_inst_dir is not None:
-        args += ["--v42k7-inst", str(v42k7_inst_dir)]
-    if v42k7_barriers_dir is not None:
-        args += ["--v42k7-barriers", str(v42k7_barriers_dir)]
     if collobjs_dir is not None:
         args += ["--collobjs", str(collobjs_dir)]
-    if rmb_world_dir is not None:
-        args += ["--rmb-world", str(rmb_world_dir)]
+    if pvs_inst_dir is not None:
+        args += ["--pvs-inst", str(pvs_inst_dir)]
     if limit:
         args += ["--limit", str(limit)]
     if variants:
