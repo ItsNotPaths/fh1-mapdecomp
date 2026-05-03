@@ -30,6 +30,142 @@ from pathlib import Path
 import numpy as np
 
 
+# Make fh1_mapdecomp importable from inside Blender's subprocess Python.
+# blender_scripts/ is a package data dir; the package root is one level up.
+_FH1_PKG = Path(__file__).resolve().parent.parent
+_FH1_SRC_ROOT = _FH1_PKG.parent
+if str(_FH1_SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(_FH1_SRC_ROOT))
+
+
+# Process-global texture bank, lazily populated when the first PVS-inst
+# directory is loaded. Keyed by zip_path so multiple sources work.
+_TEXTURE_BANKS: dict[str, "object"] = {}
+# Hash → bpy.types.Image cache (persists for the whole import)
+_BPY_IMAGE_CACHE: dict[int, "object"] = {}
+# (zip_path, hash, sampler) → bpy.types.Material cache so we don't
+# build the same material twice across thousands of meshes.
+_BPY_MATERIAL_CACHE: dict[tuple, "object"] = {}
+
+
+def _get_texture_bank(zip_path: str):
+    bank = _TEXTURE_BANKS.get(zip_path)
+    if bank is not None or zip_path in _TEXTURE_BANKS:
+        return bank
+    try:
+        from fh1_mapdecomp.textures import TextureBank
+        bank = TextureBank(Path(zip_path))
+    except Exception as ex:
+        print(f"[import_world] TextureBank({zip_path}) failed: "
+              f"{type(ex).__name__}: {ex}",
+              file=sys.stderr)
+        bank = None
+    _TEXTURE_BANKS[zip_path] = bank
+    return bank
+
+
+def _get_bpy_image_for_hash(bank, h: int):
+    """Return a bpy.types.Image for the given texture hash, or None.
+
+    Decodes the texture to DDS in-memory via the FH1 ``caff``/``bix``
+    modules, writes it to a temp file (Blender's image loader needs a
+    file path), loads it via ``bpy.data.images.load``, packs it into
+    the .blend, then deletes the temp file. Each unique hash is
+    decoded once per Blender run thanks to ``_BPY_IMAGE_CACHE``.
+    """
+    if h <= 0 or bank is None:
+        return None
+    if h in _BPY_IMAGE_CACHE:
+        return _BPY_IMAGE_CACHE[h]
+    try:
+        from fh1_mapdecomp import caff as _caff
+        tex = bank.get(h)
+        if tex is None:
+            _BPY_IMAGE_CACHE[h] = None
+            return None
+        dds_bytes = _caff.to_dds(tex)
+        if dds_bytes is None:
+            _BPY_IMAGE_CACHE[h] = None
+            return None
+    except Exception as ex:
+        print(f"[import_world] decode 0x{h:08X} failed: "
+              f"{type(ex).__name__}: {ex}", file=sys.stderr)
+        _BPY_IMAGE_CACHE[h] = None
+        return None
+
+    import tempfile, os
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            suffix=".dds", delete=False,
+        ) as tmp:
+            tmp.write(dds_bytes)
+            tmp_path = tmp.name
+        img = bpy.data.images.load(tmp_path, check_existing=False)
+        img.name = f"_0x{h:08X}"
+        img.pack()  # embed pixel data into .blend
+        # Now that it's packed, the temp file isn't needed.
+        try:
+            img.filepath = ""
+        except Exception:
+            pass
+    except Exception as ex:
+        print(f"[import_world] bpy.data.images.load(0x{h:08X}) failed: "
+              f"{type(ex).__name__}: {ex}", file=sys.stderr)
+        _BPY_IMAGE_CACHE[h] = None
+        return None
+    finally:
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+    _BPY_IMAGE_CACHE[h] = img
+    return img
+
+
+def _get_or_make_textured_material(zip_path: str, tex_hashes: tuple,
+                                   variant_fallback: str):
+    """Build (or reuse) a Principled BSDF material for a given sampler tuple.
+
+    For now we use sampler 0 as the base color; sampler 1 (when present and
+    plausibly a normal map) can be wired later. Falls back to the variant
+    flat-color material if no diffuse texture resolves.
+    """
+    key = (zip_path, tex_hashes)
+    cached = _BPY_MATERIAL_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    bank = _get_texture_bank(zip_path)
+    diffuse_hash = next((int(h) for h in tex_hashes if h > 0), 0)
+    diffuse_img = _get_bpy_image_for_hash(bank, diffuse_hash) if diffuse_hash else None
+
+    if diffuse_img is None:
+        mat = get_or_make_material(variant_fallback)
+        _BPY_MATERIAL_CACHE[key] = mat
+        return mat
+
+    mat_name = f"tex_{diffuse_hash:08X}"
+    mat = bpy.data.materials.get(mat_name)
+    if mat is None:
+        mat = bpy.data.materials.new(mat_name)
+        mat.use_nodes = True
+        nt = mat.node_tree
+        bsdf = nt.nodes.get("Principled BSDF")
+        tex_node = nt.nodes.new("ShaderNodeTexImage")
+        tex_node.image = diffuse_img
+        tex_node.location = (-300, 0)
+        if bsdf is not None:
+            base_color_socket = (
+                bsdf.inputs.get("Base Color") or bsdf.inputs.get("BaseColor")
+            )
+            if base_color_socket is not None:
+                nt.links.new(tex_node.outputs["Color"], base_color_socket)
+    _BPY_MATERIAL_CACHE[key] = mat
+    return mat
+
+
 def parse_args():
     import argparse
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
@@ -146,7 +282,7 @@ def make_mesh_from_npz(name, npz_path, variant):
     with np.load(str(npz_path)) as z:
         positions = z["positions"]
         faces = z["faces"]
-        uvs = z["uvs"]
+        uvs = z["uvs"] if "uvs" in z.files else np.zeros((0, 2), dtype=np.float32)
     if len(faces) == 0:
         return None
     verts = [(float(p[0]), float(-p[2]), float(p[1])) for p in positions]
@@ -215,19 +351,31 @@ def _make_v42k7_instance_gn(name, src_obj):
 
 
 def make_v42k7_inst_mesh_data(name, npz_path):
-    """Build a Blender mesh data block from a v42k7 instance .npz.
+    """Build a Blender mesh data block from an rmb instance .npz.
+
+    Returns ``(mesh, mat_per_face, mat_textures)`` or ``None`` for
+    face-less blobs. ``mat_per_face`` is (F,) uint16 mapping faces to
+    indices into ``mat_textures`` ((M, 8) int32 of texture hashes).
+    Both arrays may be empty when the .npz lacks material info (e.g.
+    older caches); the caller falls back to a flat-color material.
 
     Vertices are local-space (or world-space for world-authored rmbs)
     game coords (Y-up); converted to Blender Z-up via the vertex basis
-    ``(x, y, z) -> (x, -z, y)``. PVS placement translations use a
-    different basis in ``_import_inst_dir`` because the engine's
-    placement convention differs from its vertex convention. Returns
-    ``None`` for face-less blobs.
+    ``(x, y, z) -> (x, -z, y)``.
     """
     import numpy as np
     with np.load(str(npz_path)) as z:
         positions = z["positions"]
         faces = z["faces"]
+        uvs = z["uvs"] if "uvs" in z.files else np.zeros((0, 2), dtype=np.float32)
+        mat_per_face = (
+            z["mat_per_face"] if "mat_per_face" in z.files
+            else np.zeros((0,), dtype=np.uint16)
+        )
+        mat_textures = (
+            z["mat_textures"] if "mat_textures" in z.files
+            else np.zeros((0, 8), dtype=np.int32)
+        )
     if len(faces) == 0 or len(positions) == 0:
         return None
     verts = [(float(p[0]), float(-p[2]), float(p[1])) for p in positions]
@@ -235,7 +383,14 @@ def make_v42k7_inst_mesh_data(name, npz_path):
     mesh = bpy.data.meshes.new(name)
     mesh.from_pydata(verts, [], tris)
     mesh.update(calc_edges=True)
-    return mesh
+    if uvs.shape[0] == len(verts):
+        uv_layer = mesh.uv_layers.new(name="UVMap")
+        for poly in mesh.polygons:
+            for li in range(poly.loop_start, poly.loop_start + poly.loop_total):
+                vi = mesh.loops[li].vertex_index
+                u, v = uvs[vi]
+                uv_layer.data[li].uv = (float(u), float(v))
+    return mesh, mat_per_face, mat_textures
 
 
 def make_terrain_hi_mesh(name, npz_path, variant):
@@ -326,6 +481,19 @@ def _import_inst_dir(
     vi_doc = json.loads(vi_index.read_text())
     blobs = {b["handle"]: b for b in vi_doc["blobs"]}
     chunks_v = vi_doc["chunks"]
+    # Path to bin.zip is recorded by extractors that emit material info.
+    # When present, we'll decode textures on demand for each material.
+    zip_path_for_textures = vi_doc.get("source_zip", "") or ""
+    if zip_path_for_textures and not Path(zip_path_for_textures).exists():
+        print(f"[import_world] {label}: source_zip={zip_path_for_textures!r} does not exist; "
+              f"textures disabled", file=sys.stderr)
+        zip_path_for_textures = ""
+    elif zip_path_for_textures:
+        # Eagerly construct the bank once so any import error is visible.
+        bank_test = _get_texture_bank(zip_path_for_textures)
+        print(f"[import_world] {label}: TextureBank ready: "
+              f"{(bank_test is not None and len(bank_test) or 0)} texture entries",
+              file=sys.stderr)
     print(
         f"[import_world] {label}: {len(blobs)} blobs, {len(chunks_v)} chunks",
         file=sys.stderr,
@@ -378,15 +546,41 @@ def _import_inst_dir(
         if not npz.exists():
             continue
         try:
-            src_mesh = make_v42k7_inst_mesh_data(
+            built = make_v42k7_inst_mesh_data(
                 f"{blob_prefix}_{h:06d}", npz,
             )
         except Exception as ex:
             print(f"    blob {h} failed: {ex}", file=sys.stderr)
             continue
-        if src_mesh is None:
+        if built is None:
             continue
-        src_mesh.materials.append(mat)
+        src_mesh, mat_per_face, mat_textures = built
+
+        # Per-section materials: build one Blender material per unique
+        # texture-hash tuple in mat_textures, append to src_mesh.materials,
+        # then assign material_index per face from mat_per_face.
+        textures_wired = False
+        if zip_path_for_textures and mat_textures.size > 0:
+            if len(mat_per_face) != len(src_mesh.polygons):
+                pass  # silently fall back; geometry layout mismatch (rare)
+            else:
+                local_indices = []
+                for row in mat_textures:
+                    key = tuple(int(v) for v in row)
+                    m = _get_or_make_textured_material(
+                        zip_path_for_textures, key, material_variant,
+                    )
+                    if m.name not in src_mesh.materials:
+                        src_mesh.materials.append(m)
+                    local_indices.append(src_mesh.materials.find(m.name))
+                local_idx_arr = np.asarray(local_indices, dtype=np.int32)
+                face_mat = local_idx_arr[mat_per_face.astype(np.int32)]
+                src_mesh.polygons.foreach_set(
+                    "material_index", face_mat.astype(np.int32),
+                )
+                textures_wired = True
+        if not textures_wired:
+            src_mesh.materials.append(mat)
         src_obj = bpy.data.objects.new(
             f"{src_prefix}/{h:06d}_{blob['tag']}", src_mesh,
         )

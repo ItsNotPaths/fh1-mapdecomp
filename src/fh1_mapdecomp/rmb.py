@@ -139,6 +139,21 @@ SHADER_PATH_PREFIX = b"shaders\\"
 
 
 @dataclass
+class RmbMaterial:
+    """One material entry in the trailer's MaterialSet (FM3 grammar).
+
+    The ``texture_sampler_indices`` are the key for texture binding —
+    each entry is an index into ``PvsModel.textures`` (which in turn
+    indexes ``Pvs.textures[].texture_file_name`` = the integer naming
+    of ``_0xHHHHHHHH.bin``). ``-2`` means "sampler unbound"; ``-1``
+    means "instancer override" (per FM3, may differ on FH1).
+    """
+    fx_filename_index: int                          # into RmbTrailer.shader_paths
+    pixel_shader_constants: np.ndarray              # (psc_length, 4) f32
+    texture_sampler_indices: np.ndarray             # (tsi_length,) s32
+
+
+@dataclass
 class RmbSection:
     name: str
     indices: np.ndarray   # (K,) uint16, 0xFFFF = strip restart
@@ -151,6 +166,7 @@ class RmbSection:
     is_nnn_sibling: bool = False         # name ends in `_NNN` (instance suffix)
     nnn_index: Optional[int] = None      # captured digit group (e.g. 3 for `_003`)
     shader_path: Optional[str] = None    # populated post-trailer-parse if known
+    material: Optional[RmbMaterial] = None  # populated when material set parses
 
 
 @dataclass
@@ -165,6 +181,7 @@ class RmbTrailer:
     raw: bytes                                # full trailer bytes
     offset: int                               # absolute offset of trailer start
     shader_paths: list[str] = field(default_factory=list)
+    materials: list[RmbMaterial] = field(default_factory=list)
 
 
 @dataclass
@@ -186,6 +203,9 @@ class RmbSubBlob:
     stride: int
     voff: int                                # vertex bytes start within entry
     positions: np.ndarray                    # (N, 3) f32 game-space (Y-up)
+    uvs: np.ndarray = field(                 # (N, 2) f32 in [0,1]; (0,0) if absent
+        default_factory=lambda: np.zeros((0, 2), dtype=np.float32),
+    )
     sections: list[RmbSection] = field(default_factory=list)
     trailer: Optional[RmbTrailer] = None
 
@@ -201,6 +221,9 @@ class RmbBlob:
     stride: int
     voff: int                                # vertex bytes start within blob
     positions: np.ndarray                    # (N, 3) f32 game-space (Y-up)
+    uvs: np.ndarray = field(                 # (N, 2) f32 in [0,1]; (0,0) if absent
+        default_factory=lambda: np.zeros((0, 2), dtype=np.float32),
+    )
     sections: list[RmbSection] = field(default_factory=list)
     sub_blobs: list[RmbSubBlob] = field(default_factory=list)
     trailer: Optional[RmbTrailer] = None
@@ -329,6 +352,28 @@ def _decode_positions(buf: bytes, voff: int, vcount: int, stride: int) -> np.nda
             records[:, i * 4:i * 4 + 4].tobytes(), dtype=">f4",
         )
     return positions
+
+
+# Vertex layout per stride, derived from .fxobj VertexDeclaration scan
+# (see probes/probe_fxobj_vdecl.py + probe_uv_validate.py, 2026-05-03):
+#
+#   stride 16: pos(12) + UV0(4)                               UV0 @ +12
+#   stride 20: pos(12) + normal_dec4n(4) + UV0(4)             UV0 @ +16
+#   stride 24+: pos(12) + normal(4) + UV0(4) + ...            UV0 @ +16
+#
+# UVs are stored as USHORT2N (2x u16 BE normalized to /65535).
+def _decode_uv0(buf: bytes, voff: int, vcount: int, stride: int) -> np.ndarray:
+    if vcount == 0 or stride not in VALID_STRIDES:
+        return np.zeros((0, 2), dtype=np.float32)
+    uv_off = 12 if stride == 16 else 16
+    if uv_off + 4 > stride:
+        return np.zeros((0, 2), dtype=np.float32)
+    records = np.frombuffer(
+        buf, dtype=np.uint8, count=vcount * stride, offset=voff,
+    ).reshape(vcount, stride)
+    raw = records[:, uv_off : uv_off + 4]
+    uv16 = np.ascontiguousarray(raw).view(">u2").reshape(vcount, 2)
+    return uv16.astype(np.float32) / 65535.0
 
 
 # -- section parse ------------------------------------------------------------
@@ -573,7 +618,99 @@ def _extract_shader_paths(buf: bytes, start: int, end: int) -> list[str]:
     return paths
 
 
-def _parse_trailer(buf: bytes, trailer_start: int, trailer_end: int
+def _parse_material_set(buf: bytes, trailer_start: int, trailer_end: int,
+                        n_sections: int,
+                        ) -> tuple[list[RmbMaterial], int]:
+    """Parse the MaterialSet at the start of the trailer.
+
+    Grammar (FM3-derived, validated on FH1 2026-05-03):
+
+        u32 trailer_version          (5 or 6)
+        u32 ?                        (always 1)
+        u32 ?                        (always 1)
+        u32 ?                        (always 1)
+        u32 ?                        (always 1)
+        u32 materials_length         (== n_sections)
+        per material:
+          u32 material_version       (3)
+          u32 fx_filename_index
+          u32 technique_index        (0)
+          u32 vsc_version            (1)
+          u32 vsc_length
+          [16 * vsc_length] bytes    (4 floats per entry; we skip)
+          u32 psc_version            (1)
+          u32 psc_length
+          [16 * psc_length] bytes    (psc_length * vec4)
+          u32 tsi_version            (1)
+          u32 tsi_length
+          [4 * tsi_length] s32       (texture_sampler_indices)
+
+    Returns ``(materials, end_offset)``. Returns ``([], trailer_start)``
+    if the structure doesn't validate (caller falls back to bytes-only
+    trailer).
+    """
+    if trailer_end - trailer_start < 0x18:
+        return [], trailer_start
+    try:
+        materials_length = struct.unpack_from(
+            ">I", buf, trailer_start + 0x14,
+        )[0]
+        if materials_length != n_sections or not (1 <= materials_length <= 64):
+            return [], trailer_start
+        pos = trailer_start + 0x18
+        materials: list[RmbMaterial] = []
+        for _ in range(materials_length):
+            if pos + 36 > trailer_end:
+                return [], trailer_start
+            # skip material_version (1 u32)
+            pos += 4
+            fx_filename_index = struct.unpack_from(">I", buf, pos)[0]
+            pos += 4
+            # skip technique_index
+            pos += 4
+            # VSC: skip ver, read length, skip 16*length
+            pos += 4
+            vsc_length = struct.unpack_from(">I", buf, pos)[0]
+            pos += 4
+            if vsc_length > 256 or pos + 16 * vsc_length > trailer_end:
+                return [], trailer_start
+            pos += 16 * vsc_length
+            # PSC: skip ver, read length, read 16*length bytes (4*length f32)
+            if pos + 8 > trailer_end:
+                return [], trailer_start
+            pos += 4
+            psc_length = struct.unpack_from(">I", buf, pos)[0]
+            pos += 4
+            if psc_length > 256 or pos + 16 * psc_length > trailer_end:
+                return [], trailer_start
+            psc = np.frombuffer(
+                buf, dtype=">f4", count=4 * psc_length, offset=pos,
+            ).reshape(-1, 4).astype(np.float32, copy=True)
+            pos += 16 * psc_length
+            # TSI: skip ver, read length, read 4*length s32
+            if pos + 8 > trailer_end:
+                return [], trailer_start
+            pos += 4
+            tsi_length = struct.unpack_from(">I", buf, pos)[0]
+            pos += 4
+            if tsi_length > 256 or pos + 4 * tsi_length > trailer_end:
+                return [], trailer_start
+            tsi = np.frombuffer(
+                buf, dtype=">i4", count=tsi_length, offset=pos,
+            ).astype(np.int32, copy=True)
+            pos += 4 * tsi_length
+            materials.append(RmbMaterial(
+                fx_filename_index=fx_filename_index,
+                pixel_shader_constants=psc,
+                texture_sampler_indices=tsi,
+            ))
+        return materials, pos
+    except (struct.error, ValueError):
+        return [], trailer_start
+
+
+def _parse_trailer(buf: bytes, trailer_start: int, trailer_end: int,
+                   *, n_sections: int = 0,
                    ) -> Optional[RmbTrailer]:
     """Capture the bytes between the last index buffer and the next
     sub-blob (or EOF), and surface any shader paths embedded in it.
@@ -587,7 +724,32 @@ def _parse_trailer(buf: bytes, trailer_start: int, trailer_end: int
         return None
     raw = bytes(buf[trailer_start:trailer_end])
     paths = _extract_shader_paths(buf, trailer_start, trailer_end)
-    return RmbTrailer(raw=raw, offset=trailer_start, shader_paths=paths)
+    materials, _ = _parse_material_set(
+        buf, trailer_start, trailer_end, n_sections,
+    )
+    return RmbTrailer(
+        raw=raw, offset=trailer_start, shader_paths=paths, materials=materials,
+    )
+
+
+def _attribute_materials(sections: list[RmbSection],
+                         materials: list[RmbMaterial],
+                         shader_paths: list[str]) -> None:
+    """Attach materials to sections in section_idx order.
+
+    Material 0 binds to section 0, material 1 to section 1, etc.
+    Also sets ``section.shader_path`` from the material's
+    ``fx_filename_index`` so the shader path is consistent with the
+    binding (replaces the older 1:1 path-list attribution which
+    silently dropped paths when N_paths != N_sections).
+    """
+    if not materials or len(materials) != len(sections):
+        return
+    by_idx = sorted(sections, key=lambda s: s.section_idx)
+    for s, m in zip(by_idx, materials):
+        s.material = m
+        if 0 <= m.fx_filename_index < len(shader_paths):
+            s.shader_path = shader_paths[m.fx_filename_index]
 
 
 def _attribute_shader_paths(sections: list[RmbSection], paths: list[str]) -> None:
@@ -597,6 +759,10 @@ def _attribute_shader_paths(sections: list[RmbSection], paths: list[str]) -> Non
     ``section_idx`` order. When the path count equals the section count
     we attribute 1:1; otherwise we leave ``shader_path`` as ``None``
     rather than guess.
+
+    Used as a fallback when the material set didn't parse — when
+    materials parse, ``_attribute_materials`` sets shader_path via
+    each material's ``fx_filename_index`` and is more accurate.
     """
     if not paths or len(paths) != len(sections):
         return
@@ -627,10 +793,18 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
     primary_end = sub_starts[0] if sub_starts else len(buf)
 
     positions = _decode_positions(buf, voff, vc, st)
+    uvs = _decode_uv0(buf, voff, vc, st)
     sections, primary_idx_end = _parse_sections(buf, post, vc, end=primary_end)
-    primary_trailer = _parse_trailer(buf, primary_idx_end, primary_end)
+    primary_trailer = _parse_trailer(
+        buf, primary_idx_end, primary_end, n_sections=len(sections),
+    )
     if primary_trailer is not None:
-        _attribute_shader_paths(sections, primary_trailer.shader_paths)
+        if primary_trailer.materials:
+            _attribute_materials(
+                sections, primary_trailer.materials, primary_trailer.shader_paths,
+            )
+        else:
+            _attribute_shader_paths(sections, primary_trailer.shader_paths)
     lod_match = LOD_RE.search(tag)
     blob = RmbBlob(
         tag=tag,
@@ -642,6 +816,7 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
         stride=st,
         voff=voff,
         positions=positions,
+        uvs=uvs,
         sections=sections,
         trailer=primary_trailer,
     )
@@ -656,10 +831,18 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
             continue
         s_end = sub_starts[i + 1] if i + 1 < len(sub_starts) else len(buf)
         s_positions = _decode_positions(buf, s_voff, s_vc, s_st)
+        s_uvs = _decode_uv0(buf, s_voff, s_vc, s_st)
         s_sections, s_idx_end = _parse_sections(buf, s_post, s_vc, end=s_end)
-        s_trailer = _parse_trailer(buf, s_idx_end, s_end)
+        s_trailer = _parse_trailer(
+            buf, s_idx_end, s_end, n_sections=len(s_sections),
+        )
         if s_trailer is not None:
-            _attribute_shader_paths(s_sections, s_trailer.shader_paths)
+            if s_trailer.materials:
+                _attribute_materials(
+                    s_sections, s_trailer.materials, s_trailer.shader_paths,
+                )
+            else:
+                _attribute_shader_paths(s_sections, s_trailer.shader_paths)
         s_lod = LOD_RE.search(s_tag)
         blob.sub_blobs.append(RmbSubBlob(
             tag=s_tag,
@@ -671,6 +854,7 @@ def parse_blob(buf: bytes) -> Optional[RmbBlob]:
             stride=s_st,
             voff=s_voff,
             positions=s_positions,
+            uvs=s_uvs,
             sections=s_sections,
             trailer=s_trailer,
         ))

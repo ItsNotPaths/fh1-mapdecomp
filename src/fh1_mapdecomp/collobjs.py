@@ -350,6 +350,7 @@ def extract_collobjs(
                 blob_dir / name,
                 positions=blob.positions.astype(np.float32, copy=False),
                 faces=tris,
+                uvs=blob.uvs.astype(np.float32, copy=False),
             )
             blobs_meta.append({
                 "handle": handle,

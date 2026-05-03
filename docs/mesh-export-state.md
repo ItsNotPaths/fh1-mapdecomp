@@ -228,6 +228,26 @@ appendix.
 
 - Materials / textures (`.bix`, `.bundle`, `.dds`, `.xds`)
 - Lighting (`.sh` spherical-harmonic probes, lightmaps)
-- Per-vertex attributes past position (normals/UVs/colours/tangent)
+- Per-vertex attributes past position+UV0 (normals/UV1/UV2/colours/tangent)
 - Animation / dynamics
 - Audio, UI, gameplay
+
+## UV0 wired through (2026-05-03)
+
+Vertex layout decoded from .fxobj VertexDeclaration scan; UV0 lives at
+offset +12 for stride 16 (pos+UV) and offset +16 for strides 20+
+(pos+normal_dec4n+UV+...). UVs are USHORT2N (2x u16 BE / 65535).
+
+`RmbBlob.uvs` and `RmbSubBlob.uvs` populated in `parse_blob`; merged
+through `pvs_inst._merge_blob_geometry` and saved alongside positions
+in every `.npz`. Blender importer reads the new `uvs` key and creates
+a `UVMap` layer per mesh (defensive fallback for legacy npz without
+the key).
+
+After regeneration: 8,159 of 16,322 meshes in `colorado.blend` carry
+UV layers (37M UV pairs total). The remainder are terrain_hi tiles
+(no per-vertex UVs in the source) and PGEO-derived placeholder
+geometry. Blend file +25% on disk (257 → 322 MB).
+
+See `texturing-investigation-2026-05-03.md` for the full pipeline
+plan; this is phase 1 of 6.

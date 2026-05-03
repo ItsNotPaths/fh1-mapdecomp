@@ -108,11 +108,23 @@ def _list_rmb_files_by_index(zip_path: Path, prefix: str) -> dict[int, Entry]:
     return out
 
 
-def _merge_blob_geometry(blob) -> tuple[np.ndarray, np.ndarray]:
-    """Merge primary + sub-blob vertices/triangles into one mesh.
+def _merge_blob_geometry(
+    blob, pvs_model=None, pvs_textures=None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Merge primary + sub-blob vertices/triangles/UVs into one mesh.
 
     Sub-blobs share the primary's coordinate frame (same logic as
     ``v42k7_inst``).
+
+    Returns ``(positions, faces, uvs, mat_per_face, mat_textures)``:
+      - ``positions``: (V, 3) float32 — game-space (Y-up)
+      - ``faces``:     (F, 3) uint32 — vertex indices
+      - ``uvs``:       (V, 2) float32 — UV0 in [0,1]
+      - ``mat_per_face``: (F,) uint16 — index into ``mat_textures``
+      - ``mat_textures``: (M, 8) int32 — for material i, 8 texture
+        hashes (PVS texture_file_name); -2 = unbound, -1 = inherit, 0
+        = no resolution. Sampler 0 is typically the diffuse map.
+        Padded to 8 slots so all materials have the same shape.
 
     No centroid subtraction. We tried it (re-centring every mesh on
     its authored pivot) and it broke world-authored landmarks: their
@@ -122,20 +134,69 @@ def _merge_blob_geometry(blob) -> tuple[np.ndarray, np.ndarray]:
     landmark case explicitly instead.
     """
     pos_list = [blob.positions]
-    tris_list = [s.triangles for s in blob.sections if s.triangles.size]
+    uv_list = [blob.uvs]
+    tris_list: list[np.ndarray] = []
+    mat_per_face_list: list[np.ndarray] = []
+    mat_table: list[np.ndarray] = []  # (8,) int32 per material
+
+    def _resolve_section_textures(section) -> np.ndarray:
+        """Return (8,) int32 of texture hashes for a section, padded with -2."""
+        out = np.full(8, -2, dtype=np.int32)
+        if section.material is None or pvs_model is None or pvs_textures is None:
+            return out
+        tsi = section.material.texture_sampler_indices
+        for i, sampler_idx in enumerate(tsi[:8]):
+            if sampler_idx < 0:
+                out[i] = int(sampler_idx)  # propagate -1 / -2
+                continue
+            # Map sampler index → PVS texture_file_name (the disk hash)
+            if sampler_idx < len(pvs_model.textures):
+                pvs_tex_idx = pvs_model.textures[sampler_idx]
+                if 0 <= pvs_tex_idx < len(pvs_textures):
+                    out[i] = int(pvs_textures[pvs_tex_idx].texture_file_name)
+        return out
+
+    # Primary blob sections
+    for s in blob.sections:
+        if not s.triangles.size:
+            continue
+        mi = len(mat_table)
+        mat_table.append(_resolve_section_textures(s))
+        tris_list.append(s.triangles)
+        mat_per_face_list.append(np.full(s.triangles.shape[0], mi, dtype=np.uint16))
+
     vert_offset = int(blob.vcount)
     for sub in blob.sub_blobs:
         pos_list.append(sub.positions)
+        uv_list.append(sub.uvs)
         for s in sub.sections:
-            if s.triangles.size:
-                tris_list.append(s.triangles + vert_offset)
+            if not s.triangles.size:
+                continue
+            mi = len(mat_table)
+            mat_table.append(_resolve_section_textures(s))
+            tris_list.append(s.triangles + vert_offset)
+            mat_per_face_list.append(
+                np.full(s.triangles.shape[0], mi, dtype=np.uint16),
+            )
         vert_offset += int(sub.vcount)
+
     positions = np.concatenate(pos_list, axis=0) if len(pos_list) > 1 else blob.positions
+    uvs = np.concatenate(uv_list, axis=0) if len(uv_list) > 1 else blob.uvs
     if tris_list:
         tris = np.concatenate(tris_list, axis=0).astype(np.uint32, copy=False)
+        mat_per_face = np.concatenate(mat_per_face_list, axis=0)
+        mat_textures = np.stack(mat_table, axis=0)
     else:
         tris = np.zeros((0, 3), dtype=np.uint32)
-    return positions.astype(np.float32, copy=False), tris
+        mat_per_face = np.zeros((0,), dtype=np.uint16)
+        mat_textures = np.zeros((0, 8), dtype=np.int32)
+    return (
+        positions.astype(np.float32, copy=False),
+        tris,
+        uvs.astype(np.float32, copy=False),
+        mat_per_face,
+        mat_textures,
+    )
 
 
 _WORLD_AUTHORED_THRESHOLD_M = 100.0
@@ -267,8 +328,11 @@ def extract_pvs_instances(
             if blob is None:
                 blob_failed.append((mi, "parse_blob returned None"))
                 continue
-            positions, tris = _merge_blob_geometry(blob)
-            parsed[mi] = (blob, positions, tris)
+            pvs_model = pvs_doc.models[mi] if mi < len(pvs_doc.models) else None
+            positions, tris, uvs, mat_per_face, mat_textures = (
+                _merge_blob_geometry(blob, pvs_model, pvs_doc.textures)
+            )
+            parsed[mi] = (blob, positions, tris, uvs, mat_per_face, mat_textures)
             if blob.lod:
                 try:
                     lod_n = int(blob.lod)
@@ -289,7 +353,7 @@ def extract_pvs_instances(
         rec = parsed.get(mi)
         if rec is None:
             continue
-        blob, positions, tris = rec
+        blob, positions, tris, uvs, mat_per_face, mat_textures = rec
         try:
             klass = _classify_tag(blob.tag, policy)
             if klass == "terrain":
@@ -335,7 +399,14 @@ def extract_pvs_instances(
                 continue
             seen_mesh_hashes[mesh_hash] = mi
             name = f"m{mi:05d}.npz"
-            np.savez(blob_dir / name, positions=positions, faces=tris)
+            np.savez(
+                blob_dir / name,
+                positions=positions,
+                faces=tris,
+                uvs=uvs,
+                mat_per_face=mat_per_face,
+                mat_textures=mat_textures,
+            )
             blobs_meta.append({
                 "handle": mi,
                 "npz": f"blobs/{name}",
